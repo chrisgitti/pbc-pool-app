@@ -1094,6 +1094,15 @@ function step() {
           refl(-1/Math.SQRT2, -1/Math.SQRT2, d);
         }
       }
+      // Safety-Clamp: Kugel kann die Spielfeldgrenze nur verlassen, wenn sie
+      // tatsächlich in Taschenreichweite ist – schließt das Eck-Toten-Zone-Loch.
+      const inPocketEntry = POCKETS.some(p => Math.hypot(p.x - b.x, p.y - b.y) < POCKET_CATCH_R + b.r);
+      if (!inPocketEntry) {
+        if (b.x - b.r < PLAY_X1) b.x = PLAY_X1 + b.r;
+        if (b.x + b.r > PLAY_X2) b.x = PLAY_X2 - b.r;
+        if (b.y - b.r < PLAY_Y1) b.y = PLAY_Y1 + b.r;
+        if (b.y + b.r > PLAY_Y2) b.y = PLAY_Y2 - b.r;
+      }
     }
   }
   for (const b of balls) {
