@@ -865,6 +865,7 @@ const game = {
   called8Pocket: null, ball8PocketIdx: -1, selecting8Pocket: false,
   pushOutAvailable: false, inPushOut: false,
   awaitingPushOutDecision: false, pushOutDoneBy: -1,
+  lowestAtShotStart: null,
 };
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -1170,6 +1171,7 @@ function startShot() {
   game.ballsPottedThisShot = [];
   game.cuePotted = false;
   game.anyCushionAfterFirstHit = false;
+  game.lowestAtShotStart = (game.variant === "9ball") ? lowestBallOnTable() : null;
   game.spinPending = { x: game.spinX, y: game.spinY, dirX, dirY, power, used: false };
   const cue = game.cueBall;
   cue.vx = dirX * power; cue.vy = dirY * power;
@@ -1396,7 +1398,7 @@ function handle9BallShot() {
   const wasBreak = game.isBreakShot;
   game.isBreakShot = false;
   let foul = false, foulReason = "";
-  const lowest = lowestBallOnTable();
+  const lowest = game.lowestAtShotStart;
 
   // Push-Out: normale Foulregeln ausgesetzt (nur Weiße versenken ist Foul)
   if (game.inPushOut) {
@@ -2403,6 +2405,7 @@ function newGame() {
   game.called8Pocket = null; game.ball8PocketIdx = -1; game.selecting8Pocket = false;
   game.pushOutAvailable = false; game.inPushOut = false;
   game.awaitingPushOutDecision = false; game.pushOutDoneBy = -1;
+  game.lowestAtShotStart = null;
   updatePowerUI(); setAimStatus("Aim: frei");
   drawSpinCanvas(); updateSpinLabel();
   if (game.variant === "8ball") setup8BallRack();
