@@ -1,0 +1,9 @@
+{
+  "name": "pbc-pool-app",
+  "version": "1.0.0",
+  "description": "PBC Erding – Pool Billard Web-App (8-Ball & 9-Ball)",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "private": true
+}
