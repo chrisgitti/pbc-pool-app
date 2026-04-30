@@ -440,6 +440,33 @@
     background: linear-gradient(to right, transparent 0%, rgba(212,160,67,0.5) 40%, rgba(212,160,67,0.5) 60%, transparent 100%);
   }
 
+  #pushOutDecision {
+    width: min(98vw, 1200px);
+    align-items: center;
+    gap: 14px;
+    background: linear-gradient(180deg, rgba(20,20,24,0.95), rgba(10,10,11,0.95));
+    border: 1px solid #4cc9f0;
+    border-radius: 4px;
+    padding: 10px 18px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 4px 22px rgba(76, 201, 240, 0.25);
+  }
+  #pushOutDecision .label { flex: 1; font-size: 14px; font-weight: 600; }
+  #pushOutDecision .label .player-name { color: #4cc9f0; }
+  #pushOutDecision .label .sub { display: block; font-size: 11px; opacity: 0.75; font-weight: 400; margin-top: 2px; }
+  #pushOutDecision .actions { display: flex; gap: 10px; }
+  #pushOutDecision .actions button {
+    padding: 10px 20px; font-size: 12px; font-weight: 700;
+    border: 0; border-radius: 999px; cursor: pointer;
+    min-width: 130px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    transition: all 0.2s;
+  }
+  #btnPushOutAccept { background: #4cc9f0; color: #0a0a0b; }
+  #btnPushOutReject { background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.3) !important; }
+  #btnPushOutReject:hover { border-color: #4cc9f0 !important; color: #4cc9f0; }
+
   #callShotBanner {
     width: min(98vw, 1200px);
     display: none;
@@ -477,6 +504,53 @@
     background: linear-gradient(180deg, #fff 0 30%, #1d4ed8 30% 70%, #fff 70% 100%);
     color: #111; border: 2px solid #1d4ed8;
     text-shadow: 0 0 3px #fff;
+  }
+
+  #refAnnounce {
+    position: fixed;
+    bottom: 80px; left: 50%; transform: translateX(-50%);
+    z-index: 8;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+    animation: refSlideIn 0.3s ease-out;
+  }
+  #refAnnounce.show { display: flex; }
+  @keyframes refSlideIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+  #refAnnounce .ref-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, #d4a043, #b8852e);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 4px 16px rgba(212,160,67,0.45);
+    border: 2px solid rgba(255,255,255,0.15);
+  }
+  #refAnnounce .ref-bubble {
+    background: linear-gradient(135deg, rgba(25,25,30,0.97), rgba(15,15,18,0.97));
+    border: 1px solid var(--border-gold);
+    border-radius: 10px;
+    padding: 10px 20px;
+    text-align: center;
+    box-shadow: 0 6px 28px rgba(0,0,0,0.7);
+    max-width: 380px;
+  }
+  #refAnnounce .ref-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em;
+    color: var(--gold-500); font-weight: 700; margin-bottom: 4px;
+  }
+  #refAnnounce .ref-text {
+    font-size: 15px; font-weight: 700; color: #fff;
+    letter-spacing: 0.04em;
+  }
+  #refAnnounce .ref-sub {
+    font-size: 11px; color: rgba(255,255,255,0.65);
+    margin-top: 3px;
   }
 
   #endScreen {
@@ -628,6 +702,17 @@
     </div>
   </div>
 
+  <div id="pushOutDecision" style="display:none;">
+    <div class="label">
+      <span class="player-name" id="pushOutDecisionPlayer">Spieler</span>: Push-Out – annehmen oder zurückgeben?
+      <span class="sub">Annehmen = du spielst von dieser Position. Zurückgeben = Gegner muss von dort spielen.</span>
+    </div>
+    <div class="actions">
+      <button id="btnPushOutAccept">✔ Annehmen</button>
+      <button id="btnPushOutReject">↩ Zurückgeben</button>
+    </div>
+  </div>
+
   <div id="callShotBanner">
     <div class="label">
       <span class="player-name" id="callShotPlayerLine">Spieler</span>: Welche Gruppe spielst du?
@@ -694,6 +779,16 @@
     <button id="btnMenu" title="Menü (M)">≡ Menü</button>
     <button id="btnRestart">↻ Neustart</button>
     <button id="btnSound" title="Sound umschalten">♪ Sound</button>
+    <button id="btnPushOut" style="display:none; border-color: #4cc9f0; color: #4cc9f0;">Push-Out ansagen</button>
+  </div>
+</div>
+
+<div id="refAnnounce">
+  <div class="ref-icon">🎱</div>
+  <div class="ref-bubble">
+    <div class="ref-label">Schiedsrichter</div>
+    <div class="ref-text" id="refText">Foul!</div>
+    <div class="ref-sub" id="refSub"></div>
   </div>
 </div>
 
@@ -754,8 +849,8 @@ const game = {
   variant: "8ball", mode: "hotseat", difficulty: "medium", soundOn: true,
   balls: [], cueBall: null, currentPlayer: 0,
   players: [
-    { name: "Spieler 1", group: null, potted: [] },
-    { name: "Spieler 2", group: null, potted: [] }
+    { name: "Spieler 1", group: null, potted: [], consecutiveFouls: 0 },
+    { name: "Spieler 2", group: null, potted: [], consecutiveFouls: 0 }
   ],
   state: "aiming", shotInProgress: false,
   firstHit: null, ballsPottedThisShot: [], cuePotted: false, anyCushionAfterFirstHit: false,
@@ -766,9 +861,56 @@ const game = {
   spinPending: { x:0, y:0, dirX:0, dirY:0, power:0, used:false },
   placingCue: false, aiThinking: false, aiTimer: 0,
   foulMessage: "", foulTimer: 0,
+  breakCushionBalls: new Set(),
+  called8Pocket: null, ball8PocketIdx: -1, selecting8Pocket: false,
+  pushOutAvailable: false, inPushOut: false,
+  awaitingPushOutDecision: false, pushOutDoneBy: -1,
 };
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// Schiedsrichter-Ansagen
+const REF_MESSAGES = {
+  "Weiße versenkt":              { text: "FOUL – SCRATCH!", sub: "Weiße Kugel versenkt – Ball-in-Hand für den Gegner." },
+  "Keine Kugel getroffen":       { text: "FOUL!", sub: "Keine Objektkugel berührt – Ball-in-Hand für den Gegner." },
+  "Schwarze zuerst getroffen":   { text: "FOUL!", sub: "Die Schwarze darf nicht zuerst gespielt werden." },
+  "Falsche Kugel zuerst":        { text: "FOUL!", sub: "Eigene Gruppe muss zuerst getroffen werden – Ball-in-Hand." },
+  "Keine Bande nach Kontakt":    { text: "FOUL!", sub: "Nach dem Kontakt muss eine Bande oder Tasche gespielt werden." },
+  "Schwarze nicht in angesagter Tasche": { text: "FOUL – SPIELVERLUST!", sub: "Die Schwarze 8 wurde nicht in der angesagten Tasche versenkt." },
+  "Schwarze 8 vorzeitig versenkt": { text: "FOUL!", sub: "Die Schwarze 8 wurde vorzeitig versenkt und wird neu aufgesetzt." },
+  "Illegaler Anstoß":            { text: "FOUL – ILLEGALER ANSTOß!", sub: "Mindestens 4 Kugeln müssen beim Anstoß die Bande berühren." },
+  "Foul beim Push-Out":          { text: "FOUL beim Push-Out!", sub: "Weiße beim Push-Out versenkt – Ball-in-Hand." },
+  "Niedrigste Kugel":            { text: "FOUL!", sub: "Beim 9-Ball muss stets die niedrigste Kugel zuerst getroffen werden." },
+  "3-Foul-Regel":                { text: "3 FOULS IN FOLGE!", sub: "Spielverlust nach drei aufeinanderfolgenden Fouls." },
+  "Gewonnen":                    { text: "GEWONNEN!", sub: "" },
+};
+let refTimer = 0;
+
+function showRefAnnounce(foulReason, subOverride) {
+  const el = document.getElementById("refAnnounce");
+  const textEl = document.getElementById("refText");
+  const subEl = document.getElementById("refSub");
+  const iconEl = el.querySelector(".ref-icon");
+  // Passenden Eintrag suchen (Prefix-Match)
+  let entry = null;
+  for (const [key, val] of Object.entries(REF_MESSAGES)) {
+    if (foulReason.startsWith(key)) { entry = val; break; }
+  }
+  if (!entry) entry = { text: "FOUL!", sub: foulReason };
+  const isWin = foulReason === "Gewonnen";
+  textEl.textContent = entry.text;
+  subEl.textContent = subOverride || entry.sub;
+  iconEl.style.background = isWin
+    ? "linear-gradient(135deg, #1f8c3b, #0d2e17)"
+    : "linear-gradient(135deg, #d62828, #7a1010)";
+  el.classList.remove("show");
+  void el.offsetWidth; // reflow für Animation-Neustart
+  el.classList.add("show");
+  refTimer = isWin ? 180 : 210;
+}
+function hideRefAnnounce() {
+  document.getElementById("refAnnounce").classList.remove("show");
+}
 
 let audioCtx = null;
 function ensureAudio() {
@@ -909,19 +1051,19 @@ function step() {
       const cushVertActive = b.y > PLAY_Y1 + CORNER_CUT && b.y < PLAY_Y2 - CORNER_CUT;
       if (b.x - b.r < PLAY_X1 && cushVertActive && !nearPocket) {
         b.x = PLAY_X1 + b.r;
-        if (b.vx < 0) { b.vx = -b.vx * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "left"); soundCushion(); game.anyCushionAfterFirstHit = true; }
+        if (b.vx < 0) { b.vx = -b.vx * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "left"); soundCushion(); game.anyCushionAfterFirstHit = true; if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num); }
       }
       if (b.x + b.r > PLAY_X2 && cushVertActive && !nearPocket) {
         b.x = PLAY_X2 - b.r;
-        if (b.vx > 0) { b.vx = -b.vx * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "right"); soundCushion(); game.anyCushionAfterFirstHit = true; }
+        if (b.vx > 0) { b.vx = -b.vx * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "right"); soundCushion(); game.anyCushionAfterFirstHit = true; if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num); }
       }
       if (b.y - b.r < PLAY_Y1 && cushHorizActive && !nearPocket) {
         b.y = PLAY_Y1 + b.r;
-        if (b.vy < 0) { b.vy = -b.vy * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "top"); soundCushion(); game.anyCushionAfterFirstHit = true; }
+        if (b.vy < 0) { b.vy = -b.vy * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "top"); soundCushion(); game.anyCushionAfterFirstHit = true; if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num); }
       }
       if (b.y + b.r > PLAY_Y2 && cushHorizActive && !nearPocket) {
         b.y = PLAY_Y2 - b.r;
-        if (b.vy > 0) { b.vy = -b.vy * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "bottom"); soundCushion(); game.anyCushionAfterFirstHit = true; }
+        if (b.vy > 0) { b.vy = -b.vy * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "bottom"); soundCushion(); game.anyCushionAfterFirstHit = true; if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num); }
       }
       if (!nearPocket) {
         const refl = (nxIn, nyIn, signedDist) => {
@@ -934,6 +1076,7 @@ function step() {
             b.vx -= f * vN * nxIn; b.vy -= f * vN * nyIn;
             if (b.isCue) applySpinOnCushion(b, "top");
             soundCushion(); game.anyCushionAfterFirstHit = true;
+            if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num);
           }
         };
         if (b.x < PLAY_X1 + CORNER_CUT && b.y < PLAY_Y1 + CORNER_CUT) {
@@ -965,11 +1108,13 @@ function step() {
   }
   for (const b of balls) {
     if (!b.inPlay) continue;
-    for (const p of POCKETS) {
+    for (let pi = 0; pi < POCKETS.length; pi++) {
+      const p = POCKETS[pi];
       if (Math.hypot(p.x - b.x, p.y - b.y) < POCKET_CATCH_R) {
         b.inPlay = false; b.vx = 0; b.vy = 0;
         game.ballsPottedThisShot.push(b.num);
         if (b.isCue) game.cuePotted = true;
+        if (b.num === 8 && game.variant === "8ball") game.ball8PocketIdx = pi;
         soundPocket();
         break;
       }
@@ -1012,8 +1157,12 @@ function startShot() {
   if (game.placingCue) return;
   if (!game.cueBall.inPlay) return;
   if (game.powerPercent < 1) return;
+  if (game.awaitingPushOutDecision) return;
+  if (game.selecting8Pocket) return;
   game.kitchenOnly = false;
   if (typeof needsGroupCall === "function" && needsGroupCall()) { maybeShowCallModal(); return; }
+  // 8-Ball: Tasche für die 8 muss vor dem Stoß angesagt werden
+  if (needs8PocketCall()) { game.selecting8Pocket = true; updateUI(); return; }
   const power = (game.powerPercent / 100) * MAX_POWER;
   const angle = game.aimAngle;
   const dirX = Math.cos(angle), dirY = Math.sin(angle);
@@ -1072,8 +1221,12 @@ function handle8BallShot() {
   const potted = game.ballsPottedThisShot;
   const wasBreak = game.isBreakShot;
   const calledGroup = game.calledGroup;
+  const calledPocket = game.called8Pocket;
+  const pottedPocketIdx = game.ball8PocketIdx;
   game.isBreakShot = false;
   game.calledGroup = null;
+  game.called8Pocket = null;
+  game.ball8PocketIdx = -1;
   let foul = false, foulReason = "";
   if (game.cuePotted) { foul = true; foulReason = "Weiße versenkt"; }
   if (game.firstHit === null && !foul) { foul = true; foulReason = "Keine Kugel getroffen"; }
@@ -1086,20 +1239,34 @@ function handle8BallShot() {
       if (me.group === "stripe" && isFirstSolid) { foul = true; foulReason = "Falsche Kugel zuerst"; }
     }
   }
+  // WPA 6.1: Nach Erstkontakt muss eine Kugel eine Bande berühren oder versenkt werden
+  if (!foul && game.firstHit !== null) {
+    const anyObjPotted = potted.some(n => n !== 0);
+    if (!anyObjPotted && !game.anyCushionAfterFirstHit) { foul = true; foulReason = "Keine Bande nach Kontakt"; }
+  }
   const potted8 = potted.includes(8);
+  // WPA 6: 8-Ball muss in angesagter Tasche versenkt werden
+  if (!foul && potted8 && playerClearedGroup(me)) {
+    if (calledPocket === null || pottedPocketIdx !== calledPocket) {
+      foul = true; foulReason = "Schwarze nicht in angesagter Tasche";
+    }
+  }
   if (potted8) {
     const cleared = playerClearedGroup(me);
     if (cleared && !foul) {
-      game.endMessage = `${me.name} gewinnt – Schwarze Acht versenkt!`;
+      showRefAnnounce("Gewonnen", `${me.name} versenkt die Schwarze Acht regelgerecht – Sieg!`);
+      game.endMessage = `${me.name} gewinnt – Schwarze Acht in der angesagten Tasche!`;
       game.state = "ended"; game.winner = game.currentPlayer; return;
     } else if (cleared && foul) {
-      game.endMessage = `${other.name} gewinnt – ${me.name} hat ein Foul beim Versenken der 8`;
+      showRefAnnounce(foulReason, `Foul beim Versenken der 8 – ${other.name} gewinnt!`);
+      game.endMessage = `${other.name} gewinnt – ${me.name}: Foul beim Versenken der 8 (${foulReason})`;
       game.state = "ended"; game.winner = 1 - game.currentPlayer; return;
     } else {
       respotBlackBall();
       game.ballsPottedThisShot = game.ballsPottedThisShot.filter(n => n !== 8);
       game.foulMessage = "Foul: Schwarze 8 vorzeitig versenkt – wird neu aufgesetzt";
       game.foulTimer = 240; game.ballInHand = true;
+      showRefAnnounce("Schwarze 8 vorzeitig versenkt – wird neu aufgesetzt");
       game.currentPlayer = 1 - game.currentPlayer;
       if (!game.cuePotted) game.placingCue = true;
       return;
@@ -1109,11 +1276,23 @@ function handle8BallShot() {
     if (foul) {
       game.foulMessage = "Foul beim Anstoß: " + foulReason;
       game.foulTimer = 240; game.ballInHand = true;
+      showRefAnnounce(foulReason, `Foul beim Anstoß: ${foulReason} – ${game.cuePotted ? "Weiße ins Kopffeld" : "Ball-in-Hand für den Gegner"}.`);
+      // WPA: Scratch beim Anstoß → Weiße nur im Kopffeld platzieren
+      if (game.cuePotted) game.kitchenOnly = true;
       game.currentPlayer = 1 - game.currentPlayer;
       if (!game.cuePotted) game.placingCue = true;
       return;
     }
     const pottedAny = potted.some(n => n !== 0);
+    // WPA 6.3: Legaler Anstoß erfordert mind. 4 Kugeln an der Bande oder eine versenkte Kugel
+    if (!pottedAny && game.breakCushionBalls.size < 4) {
+      game.foulMessage = `Illegaler Anstoß: Nur ${game.breakCushionBalls.size} Kugel(n) an der Bande (mind. 4 nötig) – Ball-in-Hand`;
+      game.foulTimer = 300; game.ballInHand = true;
+      showRefAnnounce("Illegaler Anstoß", `Nur ${game.breakCushionBalls.size} Kugel(n) an der Bande – mind. 4 erforderlich.`);
+      game.currentPlayer = 1 - game.currentPlayer;
+      game.placingCue = true;
+      return;
+    }
     if (!pottedAny) game.currentPlayer = 1 - game.currentPlayer;
     return;
   }
@@ -1121,6 +1300,7 @@ function handle8BallShot() {
     if (foul) {
       game.foulMessage = "Foul: " + foulReason;
       game.foulTimer = 240; game.ballInHand = true;
+      showRefAnnounce(foulReason);
       game.currentPlayer = 1 - game.currentPlayer;
       if (!game.cuePotted) game.placingCue = true;
       return;
@@ -1140,6 +1320,7 @@ function handle8BallShot() {
     } else {
       game.foulMessage = `Angesagte Gruppe (${calledGroup === "solid" ? "Voll" : "Halb"}) nicht getroffen – Tisch bleibt offen`;
       game.foulTimer = 240;
+      showRefAnnounce("Falsche Kugel zuerst", `Angesagte Gruppe (${calledGroup === "solid" ? "Voll" : "Halb"}) wurde nicht getroffen – Tisch bleibt offen.`);
       game.currentPlayer = 1 - game.currentPlayer;
       return;
     }
@@ -1153,6 +1334,7 @@ function handle8BallShot() {
   if (foul) {
     game.foulMessage = "Foul: " + foulReason;
     game.foulTimer = 240; game.ballInHand = true;
+    showRefAnnounce(foulReason);
     game.currentPlayer = 1 - game.currentPlayer;
     if (!game.cuePotted) game.placingCue = true;
     return;
@@ -1209,12 +1391,52 @@ function playerClearedGroup(player) {
 
 function handle9BallShot() {
   const me = game.players[game.currentPlayer];
+  const other = game.players[1 - game.currentPlayer];
   const potted = game.ballsPottedThisShot;
+  const wasBreak = game.isBreakShot;
+  game.isBreakShot = false;
   let foul = false, foulReason = "";
   const lowest = lowestBallOnTable();
+
+  // Push-Out: normale Foulregeln ausgesetzt (nur Weiße versenken ist Foul)
+  if (game.inPushOut) {
+    game.inPushOut = false;
+    if (game.cuePotted) {
+      foul = true; foulReason = "Weiße beim Push-Out versenkt";
+    }
+    // 9 versenkt beim Push-Out → wird neu aufgesetzt
+    if (potted.includes(9)) {
+      const ball9 = game.balls.find(b => b.num === 9);
+      if (ball9) { ball9.inPlay = true; ball9.x = PLAY_X1 + PLAY_W * 0.72; ball9.y = PLAY_Y1 + PLAY_H * 0.5; ball9.vx = 0; ball9.vy = 0; }
+      game.ballsPottedThisShot = game.ballsPottedThisShot.filter(n => n !== 9);
+    }
+    for (const n of potted) { if (n === 0 || n === 9) continue; me.potted.push(n); }
+    if (foul) {
+      me.consecutiveFouls++;
+      game.foulMessage = "Foul beim Push-Out: " + foulReason;
+      game.foulTimer = 240; game.ballInHand = true;
+      showRefAnnounce("Foul beim Push-Out", foulReason);
+      game.currentPlayer = 1 - game.currentPlayer;
+      game.pushOutAvailable = false;
+      return;
+    }
+    // Gegner entscheidet: annehmen oder zurückgeben
+    game.awaitingPushOutDecision = true;
+    game.pushOutDoneBy = game.currentPlayer;
+    game.currentPlayer = 1 - game.currentPlayer;
+    updateUI();
+    return;
+  }
+
   if (game.cuePotted) { foul = true; foulReason = "Weiße versenkt"; }
   if (!foul && game.firstHit === null) { foul = true; foulReason = "Keine Kugel getroffen"; }
-  if (!foul && game.firstHit !== null && game.firstHit !== lowest) { foul = true; foulReason = `Niedrigste Kugel war die ${lowest}`; }
+  if (!foul && game.firstHit !== null && game.firstHit !== lowest) { foul = true; foulReason = `Niedrigste Kugel (${lowest}) muss zuerst getroffen werden`; }
+  // WPA 6.1: Nach Erstkontakt muss eine Kugel eine Bande berühren oder versenkt werden
+  if (!foul && game.firstHit !== null) {
+    const anyObjPotted = potted.some(n => n !== 0);
+    if (!anyObjPotted && !game.anyCushionAfterFirstHit) { foul = true; foulReason = "Keine Bande nach Kontakt"; }
+  }
+
   const potted9 = potted.includes(9);
   if (potted9) {
     if (foul) {
@@ -1222,19 +1444,57 @@ function handle9BallShot() {
       if (ball9) { ball9.inPlay = true; ball9.x = PLAY_X1 + PLAY_W * 0.72; ball9.y = PLAY_Y1 + PLAY_H * 0.5; ball9.vx = 0; ball9.vy = 0; }
       game.ballsPottedThisShot = game.ballsPottedThisShot.filter(n => n !== 9);
     } else {
+      showRefAnnounce("Gewonnen", `${me.name} versenkt die 9 – Sieg!`);
       game.endMessage = `${me.name} gewinnt – die 9 ist versenkt!`;
       game.state = "ended"; game.winner = game.currentPlayer;
       return;
     }
   }
   for (const n of potted) { if (n === 0 || n === 9) continue; me.potted.push(n); }
+
   if (foul) {
-    game.foulMessage = "Foul: " + foulReason;
+    me.consecutiveFouls++;
+    // WPA 9-Ball: 3 Fouls in Folge = Spielverlust
+    if (me.consecutiveFouls >= 3) {
+      showRefAnnounce("3-Foul-Regel", `${me.name}: 3 Fouls in Folge – Spielverlust!`);
+      game.endMessage = `${other.name} gewinnt – ${me.name} hat 3 Fouls in Folge!`;
+      game.state = "ended"; game.winner = 1 - game.currentPlayer;
+      return;
+    }
+    const warn = me.consecutiveFouls === 2 ? " ⚠ Warnung: nächstes Foul = Spielverlust!" : "";
+    game.foulMessage = "Foul: " + foulReason + warn;
     game.foulTimer = 240; game.ballInHand = true;
+    showRefAnnounce(foulReason, me.consecutiveFouls === 2 ? `${foulReason} – WARNUNG: Nächstes Foul = Spielverlust!` : undefined);
     game.currentPlayer = 1 - game.currentPlayer;
     if (!game.cuePotted) game.placingCue = true;
+    game.pushOutAvailable = false;
     return;
   }
+
+  // Legaler Stoß → Foul-Zähler zurücksetzen
+  me.consecutiveFouls = 0;
+
+  // WPA 9-Ball: Legaler Anstoß erfordert mind. 4 Kugeln an der Bande oder eine versenkte Kugel
+  if (wasBreak) {
+    const pottedAny = potted.some(n => n !== 0);
+    if (!pottedAny && game.breakCushionBalls.size < 4) {
+      game.foulMessage = `Illegaler Anstoß: Nur ${game.breakCushionBalls.size} Kugel(n) an der Bande (mind. 4 nötig) – Ball-in-Hand`;
+      game.foulTimer = 300; me.consecutiveFouls++;
+      showRefAnnounce("Illegaler Anstoß", `Nur ${game.breakCushionBalls.size} Kugel(n) an der Bande – mind. 4 erforderlich.`);
+      game.ballInHand = true;
+      game.currentPlayer = 1 - game.currentPlayer;
+      game.placingCue = true;
+      game.pushOutAvailable = false;
+      return;
+    }
+    // Nach legalem Anstoß: nächster Spieler darf Push-Out ansagen
+    game.pushOutAvailable = true;
+    const pottedByBreaker = potted.some(n => n !== 0);
+    if (!pottedByBreaker) game.currentPlayer = 1 - game.currentPlayer;
+    return;
+  }
+
+  game.pushOutAvailable = false;
   const anyPotted = potted.some(n => n !== 0);
   if (anyPotted) return;
   game.currentPlayer = 1 - game.currentPlayer;
@@ -1315,17 +1575,22 @@ function aiPlanShot() {
         bestScore = score;
         const distFactor = clamp((dCG + dTP) / 1500, 0, 1);
         const powerPercent = (0.35 + 0.65 * distFactor) * 100;
-        bestShot = { angle: Math.atan2(dyCG, dxCG), powerPercent };
+        bestShot = { angle: Math.atan2(dyCG, dxCG), powerPercent, pocketIdx: POCKETS.indexOf(p) };
       }
     }
   }
   if (!bestShot) {
     if (targets.length > 0) {
       const t = targets[0];
-      bestShot = { angle: Math.atan2(t.y - cue.y, t.x - cue.x), powerPercent: 50 };
+      bestShot = { angle: Math.atan2(t.y - cue.y, t.x - cue.x), powerPercent: 50, pocketIdx: -1 };
     } else {
-      bestShot = { angle: Math.random() * Math.PI * 2, powerPercent: 45 };
+      bestShot = { angle: Math.random() * Math.PI * 2, powerPercent: 45, pocketIdx: -1 };
     }
+  }
+  // KI: Tasche für die 8 automatisch ansagen
+  if (game.variant === "8ball" && canTarget8Ball(me)) {
+    game.called8Pocket = bestShot.pocketIdx >= 0 ? bestShot.pocketIdx : 0;
+    game.selecting8Pocket = false;
   }
   const errMap = { easy: 0.13, medium: 0.06, hard: 0.02 };
   const err = errMap[game.difficulty] ?? 0.06;
@@ -1421,10 +1686,31 @@ function drawTable() {
   for (const x of [headX, footX]) { ctx.beginPath(); ctx.arc(x, PLAY_Y1 + PLAY_H/2, 2, 0, Math.PI*2); ctx.fill(); }
   ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(headX, PLAY_Y1); ctx.lineTo(headX, PLAY_Y2); ctx.stroke();
-  for (const p of POCKETS) {
+  for (let pi = 0; pi < POCKETS.length; pi++) {
+    const p = POCKETS[pi];
+    const isCalled = game.called8Pocket === pi;
+    const isSelecting = game.selecting8Pocket;
     ctx.fillStyle = "rgba(212, 160, 67, 0.45)"; ctx.beginPath(); ctx.arc(p.x, p.y, POCKET_R + 2.5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = "#0a0a0b"; ctx.beginPath(); ctx.arc(p.x, p.y, POCKET_R + 1, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(p.x, p.y, POCKET_R, 0, Math.PI * 2); ctx.fill();
+    // Angesagte Tasche → gold
+    if (isCalled) {
+      ctx.save();
+      ctx.strokeStyle = "#d4a043"; ctx.lineWidth = 3;
+      ctx.shadowColor = "#d4a043"; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(p.x, p.y, POCKET_R + 7, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    // Auswahlmodus → alle Taschen hell hervorheben
+    if (isSelecting) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(76,201,240,0.9)"; ctx.lineWidth = 2.5;
+      ctx.setLineDash([4, 4]);
+      ctx.shadowColor = "#4cc9f0"; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(p.x, p.y, POCKET_R + 10, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
   }
   drawDiamonds();
 }
@@ -1644,6 +1930,10 @@ function loop() {
     game.foulTimer--;
     if (game.foulTimer === 0) { game.foulMessage = ""; updateUI(); }
   }
+  if (refTimer > 0) {
+    refTimer--;
+    if (refTimer === 0) hideRefAnnounce();
+  }
   render(); updateShootButton();
   requestAnimationFrame(loop);
 }
@@ -1690,6 +1980,22 @@ canvas.addEventListener("mousedown", (e) => {
   ensureAudio();
   e.preventDefault();
   const p = mousePos(e);
+
+  // 8-Ball Taschenauswahl: Spieler klickt auf eine Tasche
+  if (game.selecting8Pocket && e.button === 0) {
+    for (let pi = 0; pi < POCKETS.length; pi++) {
+      const pk = POCKETS[pi];
+      if (Math.hypot(p.x - pk.x, p.y - pk.y) < POCKET_CATCH_R * 2.8) {
+        game.called8Pocket = pi;
+        game.selecting8Pocket = false;
+        updateUI();
+        return;
+      }
+    }
+    return;
+  }
+  if (game.selecting8Pocket) return;
+
   if (game.placingCue) {
     if (e.button === 0) {
       if (tryPlaceCueBall(p)) { game.placingCue = false; game.ballInHand = false; updateUI(); }
@@ -1801,6 +2107,11 @@ const ui = {
   callShotPlayerLine: document.getElementById("callShotPlayerLine"),
   callSolid: document.getElementById("callSolid"),
   callStripe: document.getElementById("callStripe"),
+  pushOutDecision: document.getElementById("pushOutDecision"),
+  pushOutDecisionPlayer: document.getElementById("pushOutDecisionPlayer"),
+  btnPushOutAccept: document.getElementById("btnPushOutAccept"),
+  btnPushOutReject: document.getElementById("btnPushOutReject"),
+  btnPushOut: document.getElementById("btnPushOut"),
 };
 
 function handleCallChoice(group) {
@@ -1810,6 +2121,28 @@ function handleCallChoice(group) {
 }
 ui.callSolid.addEventListener("click", () => handleCallChoice("solid"));
 ui.callStripe.addEventListener("click", () => handleCallChoice("stripe"));
+
+// Push-Out: Gegner entscheidet
+ui.btnPushOutAccept.addEventListener("click", () => {
+  game.awaitingPushOutDecision = false;
+  // currentPlayer ist bereits der Gegner (der jetzt annimmt und spielt)
+  updateUI();
+});
+ui.btnPushOutReject.addEventListener("click", () => {
+  game.awaitingPushOutDecision = false;
+  // Zurückgeben: Spieler der den Push-Out gemacht hat, muss von dort spielen
+  game.currentPlayer = game.pushOutDoneBy;
+  game.pushOutDoneBy = -1;
+  updateUI();
+});
+
+// Push-Out ansagen
+ui.btnPushOut.addEventListener("click", () => {
+  if (!game.pushOutAvailable) return;
+  game.inPushOut = true;
+  game.pushOutAvailable = false;
+  updateUI();
+});
 
 function bindOptions(container, onSelect) {
   container.querySelectorAll(".opt").forEach(opt => {
@@ -1908,14 +2241,31 @@ function showEndScreen() {
   ui.endScreen.classList.add("show");
 }
 
+function needs8PocketCall() {
+  const me = game.players[game.currentPlayer];
+  return game.variant === "8ball"
+    && !game.open8ball
+    && canTarget8Ball(me)
+    && game.called8Pocket === null
+    && !game.selecting8Pocket
+    && game.state === "aiming"
+    && !game.placingCue
+    && !game.shotInProgress
+    && game.mode !== "solo"
+    && !(game.mode === "ai" && game.currentPlayer === 1);
+}
+
 function updateShootButton() {
   const needsCall = needsGroupCall();
+  const needsPocket = needs8PocketCall();
   const canShoot = game.state === "aiming"
     && !game.shotInProgress
     && !game.placingCue
     && game.cueBall.inPlay
     && !(game.mode === "ai" && game.currentPlayer === 1)
-    && !needsCall;
+    && !needsCall
+    && !game.awaitingPushOutDecision
+    && !game.selecting8Pocket;
   ui.btnShoot.disabled = !canShoot;
 }
 
@@ -1952,18 +2302,56 @@ function updateUI() {
   else { game.players[0].name = "Spieler 1"; game.players[1].name = "Spieler 2"; }
   ui.p1Name.textContent = game.players[0].name;
   ui.p2Name.textContent = game.players[1].name;
-  if (game.state === "ended") ui.statusLine.textContent = game.endMessage;
-  else if (game.placingCue && game.kitchenOnly) ui.statusLine.textContent = "Anstoß: Weiße im Kopffeld platzieren (LMB-Klick)";
-  else if (game.placingCue) ui.statusLine.textContent = "Ball-in-Hand: Weiße per LMB-Klick platzieren";
-  else if (game.mode === "ai" && game.currentPlayer === 1) ui.statusLine.textContent = "KI denkt nach…";
-  else if (game.mode === "solo") ui.statusLine.textContent = "Übungsmodus – versenke so viele Kugeln wie möglich";
-  else if (game.variant === "8ball" && game.isBreakShot) ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: Anstoß!`;
-  else if (game.variant === "8ball" && game.open8ball && game.calledGroup) {
+
+  // Status-Zeile
+  if (game.state === "ended") {
+    ui.statusLine.textContent = game.endMessage;
+  } else if (game.awaitingPushOutDecision) {
+    ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: Push-Out annehmen oder zurückgeben?`;
+  } else if (game.selecting8Pocket) {
+    ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: Klicke auf eine Tasche für die Schwarze 8!`;
+  } else if (game.called8Pocket !== null) {
+    const pNames = ["oben-links","oben-mitte","oben-rechts","unten-links","unten-mitte","unten-rechts"];
+    ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: 8 → Tasche ${pNames[game.called8Pocket] || game.called8Pocket + 1}`;
+  } else if (game.placingCue && game.kitchenOnly) {
+    ui.statusLine.textContent = "Anstoß: Weiße im Kopffeld platzieren (LMB-Klick)";
+  } else if (game.placingCue) {
+    ui.statusLine.textContent = "Ball-in-Hand: Weiße per LMB-Klick platzieren";
+  } else if (game.mode === "ai" && game.currentPlayer === 1) {
+    ui.statusLine.textContent = "KI denkt nach…";
+  } else if (game.mode === "solo") {
+    ui.statusLine.textContent = "Übungsmodus – versenke so viele Kugeln wie möglich";
+  } else if (game.variant === "8ball" && game.isBreakShot) {
+    ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: Anstoß!`;
+  } else if (game.variant === "8ball" && game.open8ball && game.calledGroup) {
     const grp = game.calledGroup === "solid" ? "Voll (1–7)" : "Halb (9–15)";
     ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: angesagt ${grp}`;
+  } else if (needsGroupCall()) {
+    ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: Gruppe ansagen!`;
+  } else if (game.variant === "9ball" && game.pushOutAvailable && game.mode !== "solo" && !(game.mode === "ai" && game.currentPlayer === 1)) {
+    ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: Push-Out möglich oder normal spielen`;
+  } else {
+    ui.statusLine.textContent = `${game.players[game.currentPlayer].name} ist am Zug`;
   }
-  else if (needsGroupCall()) ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: Gruppe ansagen!`;
-  else ui.statusLine.textContent = `${game.players[game.currentPlayer].name} ist am Zug`;
+
+  // Push-Out Entscheidungs-Banner
+  const showPushOutDecision = game.awaitingPushOutDecision && game.mode !== "solo";
+  ui.pushOutDecision.style.display = showPushOutDecision ? "flex" : "none";
+  if (showPushOutDecision) {
+    ui.pushOutDecisionPlayer.textContent = game.players[game.currentPlayer].name;
+  }
+
+  // Push-Out Button
+  const showPushOutBtn = game.variant === "9ball"
+    && game.pushOutAvailable
+    && !game.awaitingPushOutDecision
+    && game.state === "aiming"
+    && !game.placingCue
+    && !game.shotInProgress
+    && game.mode !== "solo"
+    && !(game.mode === "ai" && game.currentPlayer === 1);
+  ui.btnPushOut.style.display = showPushOutBtn ? "" : "none";
+
   maybeShowCallModal();
   ui.foulLine.textContent = game.foulMessage || "";
   ui.p1Info.textContent = playerInfoText(game.players[0]);
@@ -1999,8 +2387,8 @@ function playerInfoText(player) {
 }
 
 function newGame() {
-  game.players[0].group = null; game.players[0].potted = [];
-  game.players[1].group = null; game.players[1].potted = [];
+  game.players[0].group = null; game.players[0].potted = []; game.players[0].consecutiveFouls = 0;
+  game.players[1].group = null; game.players[1].potted = []; game.players[1].consecutiveFouls = 0;
   game.currentPlayer = 0;
   game.state = "aiming"; game.shotInProgress = false;
   game.firstHit = null; game.ballsPottedThisShot = [];
@@ -2011,6 +2399,10 @@ function newGame() {
   game.aimAngle = 0; game.powerPercent = 0;
   game.spinX = 0; game.spinY = 0;
   game.aiThinking = false;
+  game.breakCushionBalls = new Set();
+  game.called8Pocket = null; game.ball8PocketIdx = -1; game.selecting8Pocket = false;
+  game.pushOutAvailable = false; game.inPushOut = false;
+  game.awaitingPushOutDecision = false; game.pushOutDoneBy = -1;
   updatePowerUI(); setAimStatus("Aim: frei");
   drawSpinCanvas(); updateSpinLabel();
   if (game.variant === "8ball") setup8BallRack();
