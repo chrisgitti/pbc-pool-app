@@ -741,6 +741,7 @@
       <div class="opt selected" data-val="8ball">8-Ball</div>
       <div class="opt" data-val="9ball">9-Ball</div>
       <div class="opt" data-val="drill15">15-Kugeln Drill</div>
+      <div class="opt" data-val="basis">Basisübung</div>
     </div>
   </div>
 
@@ -1365,6 +1366,7 @@ function onShotComplete() {
   if (game.variant === "8ball") handle8BallShot();
   else if (game.variant === "9ball") handle9BallShot();
   else if (game.variant === "drill15") handleDrill15Shot();
+  else if (game.variant === "basis") handleBasisShot();
   else handleSoloShot();
   if (game.state === "ended") { showEndScreen(); return; }
   if (game.cuePotted) respawnCueBall();
@@ -1718,6 +1720,22 @@ function handleDrill15Shot() {
 
   placeNextDrill15Ball();
   // cuePotted → respawnCueBall() in onShotComplete → ball-in-hand
+}
+
+function setupBasis() {
+  game.balls = [];
+  const cue = new Ball(0, PLAY_X1 + PLAY_W * 0.25, PLAY_Y1 + PLAY_H * 0.5);
+  game.cueBall = cue;
+  game.balls.push(cue);
+  // Startet sofort mit Ball-in-Hand: Spieler platziert die Weiße frei
+  game.placingCue = true;
+  game.ballInHand = true;
+}
+
+function handleBasisShot() {
+  game.basisShots++;
+  // Nach jedem Stoß immer Ball-in-Hand – Weiße darf frei neu platziert werden
+  game.cuePotted = true;  // löst respawnCueBall() in onShotComplete aus
 }
 
 function aiPlanShot() {
@@ -2558,7 +2576,7 @@ function bindOptions(container, onSelect) {
 bindOptions(ui.optVariant, v => {
   game.variant = v;
   const sec = document.getElementById("modeSection");
-  if (sec) sec.style.display = (v === "drill15") ? "none" : "";
+  if (sec) sec.style.display = (v === "drill15" || v === "basis") ? "none" : "";
 });
 bindOptions(ui.optMode, v => { game.mode = v; ui.aiSection.style.display = (v === "ai") ? "" : "none"; });
 bindOptions(ui.optDiff, v => game.difficulty = v);
@@ -2707,12 +2725,12 @@ function maybeShowCallModal() {
 }
 
 function updateUI() {
-  const variant = game.variant === "8ball" ? "8-Ball" : game.variant === "9ball" ? "9-Ball" : "15-Kugeln Drill";
+  const variant = game.variant === "8ball" ? "8-Ball" : game.variant === "9ball" ? "9-Ball" : game.variant === "drill15" ? "15-Kugeln Drill" : "Basisübung";
   let modeText = "";
   if (game.mode === "hotseat") modeText = "Hot-Seat";
   else if (game.mode === "ai") modeText = "vs KI (" + game.difficulty + ")";
   else modeText = "Solo / Übung";
-  ui.modeTag.textContent = game.variant === "drill15" ? "15-Kugeln Drill" : `${variant} · ${modeText}`;
+  ui.modeTag.textContent = game.variant === "drill15" ? "15-Kugeln Drill" : game.variant === "basis" ? "Basisübung" : `${variant} · ${modeText}`;
   if (game.mode === "ai") { game.players[0].name = "Du"; game.players[1].name = "KI"; }
   else if (game.mode === "solo") { game.players[0].name = "Übung"; game.players[1].name = "—"; }
   else { game.players[0].name = "Spieler 1"; game.players[1].name = "Spieler 2"; }
@@ -2735,6 +2753,10 @@ function updateUI() {
     ui.statusLine.textContent = "Ball-in-Hand: Weiße per LMB-Klick platzieren";
   } else if (game.mode === "ai" && game.currentPlayer === 1) {
     ui.statusLine.textContent = "KI denkt nach…";
+  } else if (game.variant === "basis" && game.placingCue) {
+    ui.statusLine.textContent = "Ball-in-Hand – Weiße frei platzieren, dann stoßen";
+  } else if (game.variant === "basis") {
+    ui.statusLine.textContent = `Stoß ${game.basisShots + 1} · Effekt/Stärke/Winkel frei wählen`;
   } else if (game.variant === "drill15" && game.placingCue) {
     ui.statusLine.textContent = "Ball-in-Hand – Weiße frei auf dem Tisch platzieren";
   } else if (game.variant === "drill15") {
@@ -2775,7 +2797,7 @@ function updateUI() {
   // Rotate-Button nur bei drill-15 zeigen – und nur wenn nicht auto-portrait aktiv
   // (auf Handy im Hochformat dreht applyLayout() den Tisch bereits automatisch)
   ui.btnRotateTable.style.display =
-    (game.variant === "drill15" && !isAutoPortrait()) ? "" : "none";
+    ((game.variant === "drill15" || game.variant === "basis") && !isAutoPortrait()) ? "" : "none";
   maybeShowCallModal();
   ui.foulLine.textContent = game.foulMessage || "";
   ui.p1Info.textContent = playerInfoText(game.players[0]);
@@ -2784,13 +2806,16 @@ function updateUI() {
   ui.p2Box.classList.toggle("active", game.currentPlayer === 1 && game.mode !== "solo");
   setBadge(ui.p1Badge, game.players[0]);
   setBadge(ui.p2Badge, game.players[1]);
-  ui.p2Box.style.visibility = (game.mode === "solo" || game.variant === "drill15") ? "hidden" : "visible";
+  ui.p2Box.style.visibility = (game.mode === "solo" || game.variant === "drill15" || game.variant === "basis") ? "hidden" : "visible";
 }
 
 function setBadge(el, player) {
   el.classList.remove("solid","stripe","eight");
   if (game.variant === "drill15") {
     el.textContent = "✦"; el.style.background = "#4cc9f0"; el.style.color = "#111"; return;
+  }
+  if (game.variant === "basis") {
+    el.textContent = "○"; el.style.background = "#f7f1e3"; el.style.color = "#111"; return;
   }
   if (game.variant === "9ball") {
     el.textContent = "9";
@@ -2806,6 +2831,10 @@ function setBadge(el, player) {
 function playerInfoText(player) {
   if (game.variant === "drill15") {
     if (player === game.players[0]) return `Versenkt: ${game.drill15Potted} · Verfehlt: ${game.drill15NextBall - 1 - game.drill15Potted}`;
+    return "—";
+  }
+  if (game.variant === "basis") {
+    if (player === game.players[0]) return `Stöße: ${game.basisShots}`;
     return "—";
   }
   if (game.variant === "8ball") {
@@ -2836,6 +2865,7 @@ function newGame() {
   game.awaitingPushOutDecision = false; game.pushOutDoneBy = -1;
   game.lowestAtShotStart = null;
   game.drill15Potted = 0; game.drill15Shots = 0; game.drill15NextBall = 1; game.drill15Rotated = false;
+  game.basisShots = 0;
   if (ui.btnRotateTable) ui.btnRotateTable.textContent = "⟳ Tisch drehen";
   applyLayout();
   updatePowerUI(); setAimStatus("Aim: frei");
@@ -2843,6 +2873,7 @@ function newGame() {
   if (game.variant === "8ball") setup8BallRack();
   else if (game.variant === "9ball") setup9BallRack();
   else if (game.variant === "drill15") { game.kitchenOnly = false; game.mode = "solo"; setupDrill15(); }
+  else if (game.variant === "basis") { game.kitchenOnly = false; game.mode = "solo"; setupBasis(); }
   ui.endScreen.classList.remove("show");
   updateUI();
 }
