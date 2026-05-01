@@ -693,11 +693,12 @@
   body.portrait-mode .spin-label { font-size: 10px; }
   body.portrait-mode .spin-reset { padding: 3px 10px; font-size: 9px; }
   body.portrait-mode #btnShoot {
-    padding: 12px 14px;
+    padding: 8px 14px;
     font-size: 13px;
     white-space: nowrap;
     flex: 0 0 auto;
   }
+  body.portrait-mode .long-label { display: none; }
   body.portrait-mode #btnShoot .hint { display: none; }
   body.portrait-mode .ctrl-hint { display: none; }
   body.portrait-mode .panel-title { font-size: 9px; margin-bottom: 4px; }
@@ -855,8 +856,8 @@
           <button id="btnAimRight" title="Pfeil rechts">fein ►</button>
         </div>
         <div class="aim-row">
-          <button id="btnAimLeftFine" title="Sehr feine Justierung links">◄◄ sehr fein</button>
-          <button id="btnAimRightFine" title="Sehr feine Justierung rechts">sehr fein ►►</button>
+          <button id="btnAimLeftFine" title="Sehr feine Justierung links">◄◄ <span class="long-label">sehr fein</span></button>
+          <button id="btnAimRightFine" title="Sehr feine Justierung rechts"><span class="long-label">sehr fein</span> ►►</button>
         </div>
         <div class="aim-status" id="aimStatus">Aim: frei</div>
       </div>
@@ -2313,9 +2314,10 @@ function applyLayout() {
   if (portrait) {
     canvas.width  = H;
     canvas.height = W;
-    const scoreboardH = document.getElementById('scoreboard').offsetHeight || 44;
-    const controlsH   = document.getElementById('controlPanel').offsetHeight || 88;
-    const reservedH   = scoreboardH + controlsH + 32;
+    const scoreboardH  = document.getElementById('scoreboard').offsetHeight || 44;
+    const controlsH    = document.getElementById('controlPanel').offsetHeight || 88;
+    const bottomCtrlH  = document.getElementById('bottomControls').offsetHeight || 36;
+    const reservedH    = scoreboardH + controlsH + bottomCtrlH + 32;
     const availH      = Math.min(window.innerHeight - reservedH, 820);
     const scale       = availH / W;
     canvas.style.width  = Math.round(H * scale) + 'px';
