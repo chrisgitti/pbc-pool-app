@@ -1253,6 +1253,7 @@ function step() {
     for (const b of balls) {
       if (!b.inPlay) continue;
       const nearPocket = POCKETS.some(p => Math.hypot(p.x - b.x, p.y - b.y) < POCKET_NEAR);
+      const nearCornerPocket = POCKETS.some(p => p.type === "corner" && Math.hypot(p.x - b.x, p.y - b.y) < POCKET_NEAR + 8);
       const midX = (PLAY_X1 + PLAY_X2) / 2;
       const inSidePocketMouth = Math.abs(b.x - midX) < HALF_SIDE_PW;
       const cushHorizActive = b.x > PLAY_X1 + CORNER_CUT && b.x < PLAY_X2 - CORNER_CUT;
@@ -1265,11 +1266,11 @@ function step() {
         b.x = PLAY_X2 - b.r;
         if (b.vx > 0) applyCushionRebound(b, "right");
       }
-      if (b.y - b.r < PLAY_Y1 && cushHorizActive && !inSidePocketMouth) {
+      if (b.y - b.r < PLAY_Y1 && cushHorizActive && !inSidePocketMouth && !nearCornerPocket) {
         b.y = PLAY_Y1 + b.r;
         if (b.vy < 0) applyCushionRebound(b, "top");
       }
-      if (b.y + b.r > PLAY_Y2 && cushHorizActive && !inSidePocketMouth) {
+      if (b.y + b.r > PLAY_Y2 && cushHorizActive && !inSidePocketMouth && !nearCornerPocket) {
         b.y = PLAY_Y2 - b.r;
         if (b.vy > 0) applyCushionRebound(b, "bottom");
       }
