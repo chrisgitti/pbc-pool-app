@@ -1847,7 +1847,8 @@ function aiPlanShot() {
       if (!clearPath(cue, ghostX, ghostY, t)) continue;
       if (!clearPath(t, p.x, p.y, t)) continue;
       const dotN = (dxTP / dTP) * (dxCG / dCG) + (dyTP / dTP) * (dyCG / dCG);
-      if (dotN < 0.2) continue;
+      const minDotN = game.difficulty === 'hard' ? 0.28 : 0.2;
+      if (dotN < minDotN) continue;
       // On open table: skip shots aimed too close to the 8-ball (error may cause accidental foul)
       if (game.open8ball) {
         const eight8 = game.balls.find(b => b.num === 8 && b.inPlay);
@@ -1865,9 +1866,10 @@ function aiPlanShot() {
           }
         }
       }
-      const score = dotN * 100 - dCG * 0.05 - dTP * 0.05;
-      const distFactor = clamp((dCG + dTP) / 1500, 0, 1);
-      const powerPercent = (0.35 + 0.65 * distFactor) * 100;
+      const score = dotN * dotN * 130 - dTP * 0.12 - dCG * 0.03;
+      const dTPeff = dTP / Math.max(dotN, 0.25);
+      const distFactor = clamp((dCG + dTPeff) / 1600, 0, 1);
+      const powerPercent = clamp((0.40 + 0.60 * distFactor) * 100, 40, 100);
       validShots.push({ score, angle: Math.atan2(dyCG, dxCG), powerPercent, pocketIdx: POCKETS.indexOf(p), targetNum: t.num });
     }
   }
@@ -1895,8 +1897,8 @@ function aiPlanShot() {
     game.called8Pocket = bestShot.pocketIdx >= 0 ? bestShot.pocketIdx : 0;
     game.selecting8Pocket = false;
   }
-  const errMap      = { easy: 0.10, medium: 0.035, hard: 0.002 };
-  const powerVarMap = { easy: 0.25, medium: 0.10,  hard: 0.015 };
+  const errMap      = { easy: 0.10, medium: 0.035, hard: 0.006 };
+  const powerVarMap = { easy: 0.25, medium: 0.10,  hard: 0.08  };
   const err      = errMap[game.difficulty]      ?? 0.035;
   const powerVar = powerVarMap[game.difficulty] ?? 0.10;
   bestShot.angle        += (Math.random() - 0.5) * err * 2;
