@@ -607,6 +607,24 @@
     #controlPanel { flex-direction: row; flex-wrap: wrap; }
     #controlPanel > * { flex: 1; min-width: 140px; }
   }
+  @media (max-width: 600px) {
+    #app { padding: 6px; gap: 4px; overflow: hidden; }
+    .brand-chip { display: none; }
+    #scoreboard { grid-template-columns: 1fr auto 1fr; padding: 6px 10px; }
+    .center-info { min-width: 0; font-size: 10px; }
+    .center-info .mode-tag { font-size: 9px; padding: 2px 8px; }
+    .player .name { font-size: 12px; }
+    .player .info { display: none; }
+    #btnShoot { padding: 10px 14px; font-size: 13px; }
+    #btnShoot .hint { display: none; }
+    #spinCanvas { width: 80px; height: 80px; }
+    #controlPanel { gap: 8px; padding: 10px; }
+    #controlPanel > * { min-width: 120px; }
+    .ctrl-hint { display: none; }
+    .power-value { font-size: 18px; }
+    .panel-title { font-size: 9px; }
+  }
+  #spinCanvas { touch-action: none; }
 </style>
 </head>
 <body>
@@ -636,10 +654,11 @@
     <div class="options" id="optVariant">
       <div class="opt selected" data-val="8ball">8-Ball</div>
       <div class="opt" data-val="9ball">9-Ball</div>
+      <div class="opt" data-val="drill15">15-Kugeln Drill</div>
     </div>
   </div>
 
-  <div class="menu-section">
+  <div class="menu-section" id="modeSection">
     <h3>Spielmodus</h3>
     <div class="options" id="optMode">
       <div class="opt selected" data-val="hotseat">Hot-Seat (2 Spieler)</div>
@@ -780,6 +799,7 @@
     <button id="btnRestart">↻ Neustart</button>
     <button id="btnSound" title="Sound umschalten">♪ Sound</button>
     <button id="btnPushOut" style="display:none; border-color: #4cc9f0; color: #4cc9f0;">Push-Out ansagen</button>
+    <button id="btnRotateTable" style="display:none; border-color: #4cc9f0; color: #4cc9f0;">⟳ Tisch drehen</button>
   </div>
 </div>
 
@@ -866,6 +886,7 @@ const game = {
   pushOutAvailable: false, inPushOut: false,
   awaitingPushOutDecision: false, pushOutDoneBy: -1,
   lowestAtShotStart: null,
+  drill15Potted: 0, drill15Shots: 0, drill15NextBall: 1, drill15Rotated: false,
 };
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -1006,6 +1027,46 @@ function setup9BallRack() {
       game.balls.push(new Ball(rowBalls[col], rowX, startY + col * dy));
     }
   }
+}
+
+function setupDrill15() {
+  game.balls = [];
+  const footX = PLAY_X1 + PLAY_W * 0.72;
+  const footY = PLAY_Y1 + PLAY_H * 0.5;
+  const cue = new Ball(0, PLAY_X1 + PLAY_W * 0.25, footY);
+  game.cueBall = cue; game.balls.push(cue);
+  for (let n = 1; n <= 15; n++) {
+    const b = new Ball(n, footX, footY);
+    b.inPlay = (n === 1);
+    game.balls.push(b);
+  }
+}
+
+function placeNextDrill15Ball() {
+  game.drill15NextBall++;
+  if (game.drill15NextBall > 15) return;
+  const footX = PLAY_X1 + PLAY_W * 0.72;
+  const footY = PLAY_Y1 + PLAY_H * 0.5;
+  const next = game.balls.find(b => b.num === game.drill15NextBall);
+  if (!next) return;
+  let sx = footX, sy = footY;
+  const cue = game.cueBall;
+  if (Math.hypot(cue.x - sx, cue.y - sy) < BALL_R * 2.5) {
+    const cands = [
+      [footX - BALL_R * 2.5, footY],
+      [footX, footY - BALL_R * 2.5],
+      [footX, footY + BALL_R * 2.5],
+      [footX + BALL_R * 2.5, footY],
+    ];
+    for (const [cx, cy] of cands) {
+      if (cx > PLAY_X1 + BALL_R && cx < PLAY_X2 - BALL_R &&
+          cy > PLAY_Y1 + BALL_R && cy < PLAY_Y2 - BALL_R &&
+          Math.hypot(cue.x - cx, cue.y - cy) >= BALL_R * 2.2) {
+        sx = cx; sy = cy; break;
+      }
+    }
+  }
+  next.x = sx; next.y = sy; next.inPlay = true; next.vx = 0; next.vy = 0;
 }
 
 function step() {
@@ -1193,6 +1254,7 @@ function startShot() {
 function onShotComplete() {
   if (game.variant === "8ball") handle8BallShot();
   else if (game.variant === "9ball") handle9BallShot();
+  else if (game.variant === "drill15") handleDrill15Shot();
   else handleSoloShot();
   if (game.state === "ended") { showEndScreen(); return; }
   if (game.cuePotted) respawnCueBall();
@@ -1520,6 +1582,32 @@ function lowestBallOnTable() {
 function handleSoloShot() {
   const me = game.players[0];
   for (const n of game.ballsPottedThisShot) { if (n === 0) continue; me.potted.push(n); }
+}
+
+function handleDrill15Shot() {
+  const currentBall = game.drill15NextBall;
+  const pottedSpot = game.ballsPottedThisShot.includes(currentBall);
+
+  if (pottedSpot) {
+    game.drill15Potted++;
+  } else {
+    // 1 Stoß pro Kugel: nicht versenkt → entfernen
+    const b = game.balls.find(bb => bb.num === currentBall && bb.inPlay);
+    if (b) b.inPlay = false;
+  }
+
+  if (currentBall >= 15) {
+    const sub = game.drill15Potted === 15
+      ? "Perfekt – alle 15 Kugeln versenkt!"
+      : `${game.drill15Potted} von 15 versenkt.`;
+    showRefAnnounce("Gewonnen", sub);
+    game.endMessage = `Drill abgeschlossen – ${sub}`;
+    game.state = "ended";
+    return;
+  }
+
+  placeNextDrill15Ball();
+  // cuePotted → respawnCueBall() in onShotComplete → ball-in-hand
 }
 
 function aiPlanShot() {
@@ -1887,10 +1975,22 @@ function roundRect(ctx, x, y, w, h, r, fill, stroke) {
 }
 
 function render() {
-  ctx.clearRect(0, 0, W, H);
-  drawTable(); drawAimingHelp();
-  for (const b of game.balls) drawBall(b);
-  drawPlacementHint();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (game.drill15Rotated) {
+    // Buffer is H×W (500×920). Transform: world (wx,wy) → buffer (wy, W-wx).
+    // ctx.translate(0,W) then ctx.rotate(-π/2) achieves this.
+    ctx.save();
+    ctx.translate(0, W);
+    ctx.rotate(-Math.PI / 2);
+    drawTable(); drawAimingHelp();
+    for (const b of game.balls) drawBall(b);
+    drawPlacementHint();
+    ctx.restore();
+  } else {
+    drawTable(); drawAimingHelp();
+    for (const b of game.balls) drawBall(b);
+    drawPlacementHint();
+  }
 }
 
 const spinCanvas = document.getElementById("spinCanvas");
@@ -1956,8 +2056,35 @@ const POWER_DRAG_SCALE = 0.55;
 
 function mousePos(e) {
   const r = canvas.getBoundingClientRect();
+  if (game.drill15Rotated) {
+    // Canvas buffer is H×W (500×920). Render transform maps world (wx,wy) → buffer (wy, W-wx).
+    // Inverse: buffer (cpx,cpy) → world (W-cpy, cpx).
+    const cpx = (e.clientX - r.left) * (H / r.width);
+    const cpy = (e.clientY - r.top)  * (W / r.height);
+    return { x: W - cpy, y: cpx };
+  }
   const sx = canvas.width / r.width, sy = canvas.height / r.height;
   return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
+}
+
+function applyTableRotation() {
+  if (game.drill15Rotated) {
+    // Resize buffer to portrait (H×W = 500×920)
+    canvas.width  = H;
+    canvas.height = W;
+    const availH = Math.min(window.innerHeight - 180, 820);
+    const scale  = availH / W;
+    canvas.style.width  = Math.round(H * scale) + 'px';
+    canvas.style.height = Math.round(W * scale) + 'px';
+  } else {
+    canvas.width  = W;
+    canvas.height = H;
+    canvas.style.width  = '';
+    canvas.style.height = '';
+  }
+  canvas.style.transform  = '';
+  canvas.style.marginTop  = '';
+  canvas.style.marginBottom = '';
 }
 function updateAimFromPoint(p) {
   const cue = game.cueBall;
@@ -1987,9 +2114,10 @@ function tryPlaceCueBall(p) {
 }
 
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
-canvas.addEventListener("mousedown", (e) => {
+
+function handleCanvasDown(e) {
   ensureAudio();
-  e.preventDefault();
+  if (e.preventDefault) e.preventDefault();
   const p = mousePos(e);
 
   // 8-Ball Taschenauswahl: Spieler klickt auf eine Tasche
@@ -2024,8 +2152,8 @@ canvas.addEventListener("mousedown", (e) => {
     rmbDragging = true; rmbStart = p;
     game.powerPercent = 0; updatePowerUI();
   }
-});
-canvas.addEventListener("mousemove", (e) => {
+}
+function handleCanvasMove(e) {
   if (game.aimLocked) return;
   const p = mousePos(e);
   if (game.placingCue) {
@@ -2049,8 +2177,8 @@ canvas.addEventListener("mousemove", (e) => {
     game.powerPercent = clamp(d * POWER_DRAG_SCALE, 0, 100);
     updatePowerUI();
   }
-});
-canvas.addEventListener("mouseup", (e) => {
+}
+function handleCanvasUp(e) {
   if (e.button === 0 && lmbDragging) { lmbDragging = false; setAimStatus("Aim: gesperrt"); }
   else if (e.button === 2 && rmbDragging) {
     rmbDragging = false;
@@ -2058,10 +2186,30 @@ canvas.addEventListener("mouseup", (e) => {
     else { game.powerPercent = 0; updatePowerUI(); }
     rmbStart = null;
   }
-});
+}
+
+canvas.addEventListener("mousedown", handleCanvasDown);
+canvas.addEventListener("mousemove", handleCanvasMove);
+canvas.addEventListener("mouseup", handleCanvasUp);
 canvas.addEventListener("mouseleave", () => {
   if (rmbDragging) { rmbDragging = false; game.powerPercent = 0; updatePowerUI(); rmbStart = null; }
 });
+
+// Touch-Support: Zielen und Platzieren per Finger
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  handleCanvasDown({ clientX: t.clientX, clientY: t.clientY, button: 0, preventDefault: ()=>{} });
+}, { passive: false });
+canvas.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  if (t) handleCanvasMove({ clientX: t.clientX, clientY: t.clientY });
+}, { passive: false });
+canvas.addEventListener("touchend", (e) => {
+  e.preventDefault();
+  handleCanvasUp({ button: 0 });
+}, { passive: false });
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space") { e.preventDefault(); startShot(); }
   else if (e.key && e.key.toLowerCase() === "m") showMenu();
@@ -2123,6 +2271,7 @@ const ui = {
   btnPushOutAccept: document.getElementById("btnPushOutAccept"),
   btnPushOutReject: document.getElementById("btnPushOutReject"),
   btnPushOut: document.getElementById("btnPushOut"),
+  btnRotateTable: document.getElementById("btnRotateTable"),
 };
 
 function handleCallChoice(group) {
@@ -2147,6 +2296,14 @@ ui.btnPushOutReject.addEventListener("click", () => {
   updateUI();
 });
 
+// Tisch drehen (Drill 15)
+ui.btnRotateTable.addEventListener("click", () => {
+  if (game.variant !== "drill15") return;
+  game.drill15Rotated = !game.drill15Rotated;
+  ui.btnRotateTable.textContent = game.drill15Rotated ? "⟳ Tisch zurück" : "⟳ Tisch drehen";
+  applyTableRotation();
+});
+
 // Push-Out ansagen
 ui.btnPushOut.addEventListener("click", () => {
   if (!game.pushOutAvailable) return;
@@ -2164,7 +2321,11 @@ function bindOptions(container, onSelect) {
     });
   });
 }
-bindOptions(ui.optVariant, v => game.variant = v);
+bindOptions(ui.optVariant, v => {
+  game.variant = v;
+  const sec = document.getElementById("modeSection");
+  if (sec) sec.style.display = (v === "drill15") ? "none" : "";
+});
 bindOptions(ui.optMode, v => { game.mode = v; ui.aiSection.style.display = (v === "ai") ? "" : "none"; });
 bindOptions(ui.optDiff, v => game.difficulty = v);
 bindOptions(ui.optSound, v => game.soundOn = (v === "on"));
@@ -2209,12 +2370,12 @@ ui.powerBar.addEventListener("pointerup", (e) => {
 });
 ui.powerBar.addEventListener("pointercancel", () => { powerBarDragging = false; });
 
-spinCanvas.addEventListener("click", (e) => {
+function handleSpinInput(clientX, clientY) {
   const r = spinCanvas.getBoundingClientRect();
   const cx = spinCanvas.width / 2, cy = spinCanvas.height / 2;
   const sx = spinCanvas.width / r.width, sy = spinCanvas.height / r.height;
-  const mx = (e.clientX - r.left) * sx;
-  const my = (e.clientY - r.top) * sy;
+  const mx = (clientX - r.left) * sx;
+  const my = (clientY - r.top) * sy;
   const dx = mx - cx, dy = my - cy;
   const radius = spinCanvas.width / 2 - 6;
   const dist = Math.hypot(dx, dy);
@@ -2223,7 +2384,18 @@ spinCanvas.addEventListener("click", (e) => {
   if (dist > maxR) { const k = maxR / dist; nx = (dx * k) / maxR; ny = (dy * k) / maxR; }
   game.spinX = clamp(nx, -1, 1); game.spinY = clamp(ny, -1, 1);
   drawSpinCanvas(); updateSpinLabel();
-});
+}
+spinCanvas.addEventListener("click", (e) => handleSpinInput(e.clientX, e.clientY));
+spinCanvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  handleSpinInput(t.clientX, t.clientY);
+}, { passive: false });
+spinCanvas.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  if (t) handleSpinInput(t.clientX, t.clientY);
+}, { passive: false });
 ui.btnSpinReset.addEventListener("click", () => {
   game.spinX = 0; game.spinY = 0;
   drawSpinCanvas(); updateSpinLabel();
@@ -2302,12 +2474,12 @@ function maybeShowCallModal() {
 }
 
 function updateUI() {
-  const variant = game.variant === "8ball" ? "8-Ball" : "9-Ball";
+  const variant = game.variant === "8ball" ? "8-Ball" : game.variant === "9ball" ? "9-Ball" : "15-Kugeln Drill";
   let modeText = "";
   if (game.mode === "hotseat") modeText = "Hot-Seat";
   else if (game.mode === "ai") modeText = "vs KI (" + game.difficulty + ")";
   else modeText = "Solo / Übung";
-  ui.modeTag.textContent = `${variant} · ${modeText}`;
+  ui.modeTag.textContent = game.variant === "drill15" ? "15-Kugeln Drill" : `${variant} · ${modeText}`;
   if (game.mode === "ai") { game.players[0].name = "Du"; game.players[1].name = "KI"; }
   else if (game.mode === "solo") { game.players[0].name = "Übung"; game.players[1].name = "—"; }
   else { game.players[0].name = "Spieler 1"; game.players[1].name = "Spieler 2"; }
@@ -2330,6 +2502,10 @@ function updateUI() {
     ui.statusLine.textContent = "Ball-in-Hand: Weiße per LMB-Klick platzieren";
   } else if (game.mode === "ai" && game.currentPlayer === 1) {
     ui.statusLine.textContent = "KI denkt nach…";
+  } else if (game.variant === "drill15" && game.placingCue) {
+    ui.statusLine.textContent = "Ball-in-Hand – Weiße frei auf dem Tisch platzieren";
+  } else if (game.variant === "drill15") {
+    ui.statusLine.textContent = `Kugel ${game.drill15NextBall}/15 · Versenkt: ${game.drill15Potted}`;
   } else if (game.mode === "solo") {
     ui.statusLine.textContent = "Übungsmodus – versenke so viele Kugeln wie möglich";
   } else if (game.variant === "8ball" && game.isBreakShot) {
@@ -2363,6 +2539,7 @@ function updateUI() {
     && !(game.mode === "ai" && game.currentPlayer === 1);
   ui.btnPushOut.style.display = showPushOutBtn ? "" : "none";
 
+  ui.btnRotateTable.style.display = (game.variant === "drill15") ? "" : "none";
   maybeShowCallModal();
   ui.foulLine.textContent = game.foulMessage || "";
   ui.p1Info.textContent = playerInfoText(game.players[0]);
@@ -2371,11 +2548,14 @@ function updateUI() {
   ui.p2Box.classList.toggle("active", game.currentPlayer === 1 && game.mode !== "solo");
   setBadge(ui.p1Badge, game.players[0]);
   setBadge(ui.p2Badge, game.players[1]);
-  ui.p2Box.style.visibility = (game.mode === "solo") ? "hidden" : "visible";
+  ui.p2Box.style.visibility = (game.mode === "solo" || game.variant === "drill15") ? "hidden" : "visible";
 }
 
 function setBadge(el, player) {
   el.classList.remove("solid","stripe","eight");
+  if (game.variant === "drill15") {
+    el.textContent = "✦"; el.style.background = "#4cc9f0"; el.style.color = "#111"; return;
+  }
   if (game.variant === "9ball") {
     el.textContent = "9";
     el.style.background = "#fcc419"; el.style.color = "#111";
@@ -2388,6 +2568,10 @@ function setBadge(el, player) {
 }
 
 function playerInfoText(player) {
+  if (game.variant === "drill15") {
+    if (player === game.players[0]) return `Versenkt: ${game.drill15Potted} · Verfehlt: ${game.drill15NextBall - 1 - game.drill15Potted}`;
+    return "—";
+  }
   if (game.variant === "8ball") {
     if (!player.group) return "Gruppe: offen";
     const remaining = 7 - player.potted.length;
@@ -2415,13 +2599,19 @@ function newGame() {
   game.pushOutAvailable = false; game.inPushOut = false;
   game.awaitingPushOutDecision = false; game.pushOutDoneBy = -1;
   game.lowestAtShotStart = null;
+  game.drill15Potted = 0; game.drill15Shots = 0; game.drill15NextBall = 1; game.drill15Rotated = false;
+  if (ui.btnRotateTable) ui.btnRotateTable.textContent = "⟳ Tisch drehen";
+  applyTableRotation();
   updatePowerUI(); setAimStatus("Aim: frei");
   drawSpinCanvas(); updateSpinLabel();
   if (game.variant === "8ball") setup8BallRack();
   else if (game.variant === "9ball") setup9BallRack();
+  else if (game.variant === "drill15") { game.kitchenOnly = false; game.mode = "solo"; setupDrill15(); }
   ui.endScreen.classList.remove("show");
   updateUI();
 }
+
+window.addEventListener("resize", () => { applyTableRotation(); });
 
 function init() {
   newGame(); showMenu();
