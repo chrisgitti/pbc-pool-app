@@ -1372,9 +1372,14 @@ function applySpinOnCushion(cue, side) {
   if (Math.abs(sp.x) < 0.05) return;
   const eng = sp.x;
   if (side === "left" || side === "right") {
-    cue.vy += (side === "right" ? 1 : -1) * eng * Math.abs(cue.vx) * 0.18;
+    const absN = Math.abs(cue.vx);
+    // Leichter Anstoß → Rollkontakt → stärkere Spinübertragung (bis 2× bei sehr weichem Stoß)
+    const spinBoost = absN < 15 ? (1 + (15 - absN) / 15) : 1.0;
+    cue.vy += (side === "right" ? 1 : -1) * eng * absN * 0.18 * spinBoost;
   } else {
-    cue.vx += (side === "bottom" ? -1 : 1) * eng * Math.abs(cue.vy) * 0.18;
+    const absN = Math.abs(cue.vy);
+    const spinBoost = absN < 15 ? (1 + (15 - absN) / 15) : 1.0;
+    cue.vx += (side === "bottom" ? -1 : 1) * eng * absN * 0.18 * spinBoost;
   }
   sp.x *= 0.5;
 }
