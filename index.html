@@ -2852,7 +2852,7 @@ function detectAimedBall() {
   return closest;
 }
 function maybeShowCallModal() {
-  if (needsGroupCall()) {
+  if (needsGroupCall() && game.aimActive) {
     ui.callShotPlayerLine.textContent = " " + game.players[game.currentPlayer].name;
     _detectedCallBall = detectAimedBall();
     // Reset modal to phase 1
