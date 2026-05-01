@@ -656,7 +656,7 @@
   /* Compact Controls Bar */
   body.portrait-mode #controlPanel {
     flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     width: 100%;
     max-width: 100%;
@@ -664,7 +664,28 @@
     padding: 6px 10px;
     gap: 8px;
   }
-  body.portrait-mode .aim-section { display: none; }
+  body.portrait-mode .aim-section {
+    order: 10;
+    flex-basis: 100%;
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    padding: 0;
+  }
+  body.portrait-mode .aim-section .panel-title { display: none; }
+  body.portrait-mode .aim-section .ctrl-hint   { display: none; }
+  body.portrait-mode .aim-section .aim-status  { display: none; }
+  body.portrait-mode .aim-section .aim-row {
+    flex: 1;
+    margin-top: 0;
+    display: flex;
+    gap: 4px;
+  }
+  body.portrait-mode .aim-section button {
+    flex: 1;
+    padding: 7px 4px;
+    font-size: 10px;
+  }
   body.portrait-mode .power-section { flex: 1; min-width: 0; }
   body.portrait-mode .power-value { font-size: 16px; }
   body.portrait-mode .spin-section { flex: 0 0 auto; }
@@ -895,11 +916,14 @@
 
 const W = 920, H = 500;
 const RAIL = 40;
-const POCKET_R = 17;
+const POCKET_R_CORNER = 18;  // WPA: 4,5" Ecklochdurchmesser ÷ Skalierung
+const POCKET_R_SIDE   = 25;  // WPA: 5,0" Seitenloch → sqrt(R²-13²)=21
+const POCKET_R = 18;          // Fallback-Alias (nicht mehr direkt genutzt)
 const POCKET_CATCH_R = 22;
-const POCKET_NEAR = 50;
-const BALL_R = 11;
-const CORNER_CUT = 30;
+const POCKET_NEAR = 45;
+const BALL_R = 9.5;           // WPA: 57,15 mm / 2 × 8,4 px/inch = 9,45 px
+const CORNER_CUT = 27;        // WPA: 4,5" Ecklocheröffnung = 38 px → 38/√2 ≈ 27 px
+const HALF_SIDE_PW = 21;      // WPA: 5,0" Seitentasche, halbe Öffnungsbreite = 21 px
 const FRICTION = 0.992;
 const ROLLING_DRAG = 0.018;
 const MIN_VEL = 0.10;
@@ -955,6 +979,24 @@ const game = {
 };
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// Pinch-to-Zoom state
+let viewZoom = 1.0, viewPanX = 0, viewPanY = 0;
+let _pinchStartDist = 0, _pinchStartZoom = 1;
+let _pinchStartPanX = 0, _pinchStartPanY = 0;
+let _pinchStartMidX = 0, _pinchStartMidY = 0;
+let _pinchCanvasNatLeft = 0, _pinchCanvasNatTop = 0;
+let _lastTapTime = 0;
+
+function applyCanvasZoom() {
+  canvas.style.transformOrigin = '0 0';
+  canvas.style.transform = `translate(${viewPanX}px,${viewPanY}px) scale(${viewZoom})`;
+}
+function resetCanvasZoom() {
+  viewZoom = 1; viewPanX = 0; viewPanY = 0;
+  canvas.style.transform = '';
+  canvas.style.transformOrigin = '';
+}
 
 // Schiedsrichter-Ansagen
 const REF_MESSAGES = {
@@ -1060,7 +1102,7 @@ function setup8BallRack() {
   game.balls = [];
   const cue = new Ball(0, PLAY_X1 + PLAY_W * 0.25, PLAY_Y1 + PLAY_H * 0.5);
   game.cueBall = cue; game.balls.push(cue);
-  const apexX = PLAY_X1 + PLAY_W * 0.72;
+  const apexX = PLAY_X1 + PLAY_W * 0.75;
   const apexY = PLAY_Y1 + PLAY_H * 0.5;
   const dx = BALL_R * 2 * Math.cos(Math.PI / 6) + 0.3;
   const dy = BALL_R * 2 + 0.2;
@@ -1079,7 +1121,7 @@ function setup9BallRack() {
   game.balls = [];
   const cue = new Ball(0, PLAY_X1 + PLAY_W * 0.25, PLAY_Y1 + PLAY_H * 0.5);
   game.cueBall = cue; game.balls.push(cue);
-  const apexX = PLAY_X1 + PLAY_W * 0.72;
+  const apexX = PLAY_X1 + PLAY_W * 0.75;
   const apexY = PLAY_Y1 + PLAY_H * 0.5;
   const dx = BALL_R * 2 * Math.cos(Math.PI / 6) + 0.3;
   const dy = BALL_R * 2 + 0.2;
@@ -1096,7 +1138,7 @@ function setup9BallRack() {
 
 function setupDrill15() {
   game.balls = [];
-  const footX = PLAY_X1 + PLAY_W * 0.72;
+  const footX = PLAY_X1 + PLAY_W * 0.75;
   const footY = PLAY_Y1 + PLAY_H * 0.5;
   const cue = new Ball(0, PLAY_X1 + PLAY_W * 0.25, footY);
   game.cueBall = cue; game.balls.push(cue);
@@ -1110,7 +1152,7 @@ function setupDrill15() {
 function placeNextDrill15Ball() {
   game.drill15NextBall++;
   if (game.drill15NextBall > 15) return;
-  const footX = PLAY_X1 + PLAY_W * 0.72;
+  const footX = PLAY_X1 + PLAY_W * 0.75;
   const footY = PLAY_Y1 + PLAY_H * 0.5;
   const next = game.balls.find(b => b.num === game.drill15NextBall);
   if (!next) return;
@@ -1174,6 +1216,8 @@ function step() {
     for (const b of balls) {
       if (!b.inPlay) continue;
       const nearPocket = POCKETS.some(p => Math.hypot(p.x - b.x, p.y - b.y) < POCKET_NEAR);
+      const midX = (PLAY_X1 + PLAY_X2) / 2;
+      const inSidePocketMouth = Math.abs(b.x - midX) < HALF_SIDE_PW;
       const cushHorizActive = b.x > PLAY_X1 + CORNER_CUT && b.x < PLAY_X2 - CORNER_CUT;
       const cushVertActive = b.y > PLAY_Y1 + CORNER_CUT && b.y < PLAY_Y2 - CORNER_CUT;
       if (b.x - b.r < PLAY_X1 && cushVertActive && !nearPocket) {
@@ -1184,11 +1228,11 @@ function step() {
         b.x = PLAY_X2 - b.r;
         if (b.vx > 0) { b.vx = -b.vx * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "right"); soundCushion(); game.anyCushionAfterFirstHit = true; if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num); }
       }
-      if (b.y - b.r < PLAY_Y1 && cushHorizActive && !nearPocket) {
+      if (b.y - b.r < PLAY_Y1 && cushHorizActive && !inSidePocketMouth) {
         b.y = PLAY_Y1 + b.r;
         if (b.vy < 0) { b.vy = -b.vy * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "top"); soundCushion(); game.anyCushionAfterFirstHit = true; if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num); }
       }
-      if (b.y + b.r > PLAY_Y2 && cushHorizActive && !nearPocket) {
+      if (b.y + b.r > PLAY_Y2 && cushHorizActive && !inSidePocketMouth) {
         b.y = PLAY_Y2 - b.r;
         if (b.vy > 0) { b.vy = -b.vy * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "bottom"); soundCushion(); game.anyCushionAfterFirstHit = true; if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num); }
       }
@@ -1281,7 +1325,7 @@ function applySpinOnCushion(cue, side) {
   if (Math.abs(sp.x) < 0.05) return;
   const eng = sp.x;
   if (side === "left" || side === "right") {
-    cue.vy += (side === "right" ? -1 : 1) * eng * Math.abs(cue.vx) * 0.18;
+    cue.vy += (side === "right" ? 1 : -1) * eng * Math.abs(cue.vx) * 0.18;
   } else {
     cue.vx += (side === "bottom" ? -1 : 1) * eng * Math.abs(cue.vy) * 0.18;
   }
@@ -1290,7 +1334,7 @@ function applySpinOnCushion(cue, side) {
 
 function startShot() {
   if (game.state !== "aiming" || game.shotInProgress) return;
-  if (game.placingCue) return;
+  if (game.placingCue) { game.placingCue = false; game.ballInHand = false; }
   if (!game.cueBall.inPlay) return;
   if (game.powerPercent < 1) return;
   if (game.awaitingPushOutDecision) return;
@@ -1311,6 +1355,7 @@ function startShot() {
   const cue = game.cueBall;
   cue.vx = dirX * power; cue.vy = dirY * power;
   game.shotInProgress = true; game.state = "moving";
+  resetCanvasZoom();
   soundCueHit(power);
   game.spinX = 0; game.spinY = 0;
   drawSpinCanvas(); updateSpinLabel();
@@ -1485,7 +1530,7 @@ function respotBlackBall() {
   const ball8 = game.balls.find(b => b.num === 8);
   if (!ball8) return;
   ball8.inPlay = true; ball8.vx = 0; ball8.vy = 0;
-  const footX = PLAY_X1 + PLAY_W * 0.72;
+  const footX = PLAY_X1 + PLAY_W * 0.75;
   const footY = PLAY_Y1 + PLAY_H * 0.5;
   let sx = footX, sy = footY;
   const step = BALL_R * 2 + 0.5;
@@ -1545,7 +1590,7 @@ function handle9BallShot() {
     // 9 versenkt beim Push-Out → wird neu aufgesetzt
     if (potted.includes(9)) {
       const ball9 = game.balls.find(b => b.num === 9);
-      if (ball9) { ball9.inPlay = true; ball9.x = PLAY_X1 + PLAY_W * 0.72; ball9.y = PLAY_Y1 + PLAY_H * 0.5; ball9.vx = 0; ball9.vy = 0; }
+      if (ball9) { ball9.inPlay = true; ball9.x = PLAY_X1 + PLAY_W * 0.75; ball9.y = PLAY_Y1 + PLAY_H * 0.5; ball9.vx = 0; ball9.vy = 0; }
       game.ballsPottedThisShot = game.ballsPottedThisShot.filter(n => n !== 9);
     }
     for (const n of potted) { if (n === 0 || n === 9) continue; me.potted.push(n); }
@@ -1579,7 +1624,7 @@ function handle9BallShot() {
   if (potted9) {
     if (foul) {
       const ball9 = game.balls.find(b => b.num === 9);
-      if (ball9) { ball9.inPlay = true; ball9.x = PLAY_X1 + PLAY_W * 0.72; ball9.y = PLAY_Y1 + PLAY_H * 0.5; ball9.vx = 0; ball9.vy = 0; }
+      if (ball9) { ball9.inPlay = true; ball9.x = PLAY_X1 + PLAY_W * 0.75; ball9.y = PLAY_Y1 + PLAY_H * 0.5; ball9.vx = 0; ball9.vy = 0; }
       game.ballsPottedThisShot = game.ballsPottedThisShot.filter(n => n !== 9);
     } else {
       showRefAnnounce("Gewonnen", `${me.name} versenkt die 9 – Sieg!`);
@@ -1815,9 +1860,15 @@ function drawTable() {
   const grad = ctx.createRadialGradient(W/2, H/2, 50, W/2, H/2, W/1.4);
   grad.addColorStop(0, "#1a6b2f"); grad.addColorStop(1, "#0a2010");
   ctx.fillStyle = grad; feltPath(); ctx.fill();
+  const midX = (PLAY_X1 + PLAY_X2) / 2;
   ctx.fillStyle = cushNose;
-  ctx.fillRect(PLAY_X1 + CORNER_CUT, PLAY_Y1 - cushW, PLAY_W - 2*CORNER_CUT, cushW);
-  ctx.fillRect(PLAY_X1 + CORNER_CUT, PLAY_Y2, PLAY_W - 2*CORNER_CUT, cushW);
+  // Oben – zwei Hälften mit Lücke für Seitentasche
+  ctx.fillRect(PLAY_X1 + CORNER_CUT, PLAY_Y1 - cushW, midX - HALF_SIDE_PW - PLAY_X1 - CORNER_CUT, cushW);
+  ctx.fillRect(midX + HALF_SIDE_PW, PLAY_Y1 - cushW, PLAY_X2 - CORNER_CUT - midX - HALF_SIDE_PW, cushW);
+  // Unten – zwei Hälften mit Lücke für Seitentasche
+  ctx.fillRect(PLAY_X1 + CORNER_CUT, PLAY_Y2, midX - HALF_SIDE_PW - PLAY_X1 - CORNER_CUT, cushW);
+  ctx.fillRect(midX + HALF_SIDE_PW, PLAY_Y2, PLAY_X2 - CORNER_CUT - midX - HALF_SIDE_PW, cushW);
+  // Links/rechts – unverändert
   ctx.fillRect(PLAY_X1 - cushW, PLAY_Y1 + CORNER_CUT, cushW, PLAY_H - 2*CORNER_CUT);
   ctx.fillRect(PLAY_X2, PLAY_Y1 + CORNER_CUT, cushW, PLAY_H - 2*CORNER_CUT);
   const slantOff = cushW / sq2;
@@ -1827,8 +1878,13 @@ function drawTable() {
   ctx.beginPath(); ctx.moveTo(PLAY_X2 - CORNER_CUT, PLAY_Y2); ctx.lineTo(PLAY_X2, PLAY_Y2 - CORNER_CUT); ctx.lineTo(PLAY_X2 + slantOff, PLAY_Y2 - CORNER_CUT + slantOff); ctx.lineTo(PLAY_X2 - CORNER_CUT + slantOff, PLAY_Y2 + slantOff); ctx.closePath(); ctx.fill();
   ctx.strokeStyle = cushNoseHi; ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.moveTo(PLAY_X1 + CORNER_CUT, PLAY_Y1); ctx.lineTo(PLAY_X2 - CORNER_CUT, PLAY_Y1);
-  ctx.moveTo(PLAY_X1 + CORNER_CUT, PLAY_Y2); ctx.lineTo(PLAY_X2 - CORNER_CUT, PLAY_Y2);
+  // Oben – mit Lücke für Seitentasche
+  ctx.moveTo(PLAY_X1 + CORNER_CUT, PLAY_Y1); ctx.lineTo(midX - HALF_SIDE_PW, PLAY_Y1);
+  ctx.moveTo(midX + HALF_SIDE_PW, PLAY_Y1); ctx.lineTo(PLAY_X2 - CORNER_CUT, PLAY_Y1);
+  // Unten – mit Lücke für Seitentasche
+  ctx.moveTo(PLAY_X1 + CORNER_CUT, PLAY_Y2); ctx.lineTo(midX - HALF_SIDE_PW, PLAY_Y2);
+  ctx.moveTo(midX + HALF_SIDE_PW, PLAY_Y2); ctx.lineTo(PLAY_X2 - CORNER_CUT, PLAY_Y2);
+  // Links/rechts – unverändert
   ctx.moveTo(PLAY_X1, PLAY_Y1 + CORNER_CUT); ctx.lineTo(PLAY_X1, PLAY_Y2 - CORNER_CUT);
   ctx.moveTo(PLAY_X2, PLAY_Y1 + CORNER_CUT); ctx.lineTo(PLAY_X2, PLAY_Y2 - CORNER_CUT);
   ctx.moveTo(PLAY_X1 + CORNER_CUT, PLAY_Y1); ctx.lineTo(PLAY_X1, PLAY_Y1 + CORNER_CUT);
@@ -1844,36 +1900,76 @@ function drawTable() {
     ctx.beginPath(); ctx.moveTo(PLAY_X1, y); ctx.lineTo(PLAY_X2, y); ctx.stroke();
   }
   ctx.restore();
-  ctx.fillStyle = "rgba(255,255,255,0.25)";
-  const headX = PLAY_X1 + PLAY_W * 0.25;
-  const footX = PLAY_X1 + PLAY_W * 0.72;
-  for (const x of [headX, footX]) { ctx.beginPath(); ctx.arc(x, PLAY_Y1 + PLAY_H/2, 2, 0, Math.PI*2); ctx.fill(); }
-  ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 1;
+  // Markierungspunkte: Kopfpunkt, Mittelpunkt, Fußpunkt (WPA: je 1/4 Tischlänge von Bande)
+  const headX   = PLAY_X1 + PLAY_W * 0.25;
+  const centerX = PLAY_X1 + PLAY_W * 0.50;
+  const footX   = PLAY_X1 + PLAY_W * 0.75;
+  const spotY   = PLAY_Y1 + PLAY_H / 2;
+  ctx.fillStyle = "rgba(255,255,255,0.30)";
+  for (const x of [headX, centerX, footX]) {
+    ctx.beginPath(); ctx.arc(x, spotY, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(headX, PLAY_Y1); ctx.lineTo(headX, PLAY_Y2); ctx.stroke();
   for (let pi = 0; pi < POCKETS.length; pi++) {
     const p = POCKETS[pi];
+    const pr = p.type === "side" ? POCKET_R_CORNER : POCKET_R_CORNER;
     const isCalled = game.called8Pocket === pi;
     const isSelecting = game.selecting8Pocket;
-    ctx.fillStyle = "rgba(212, 160, 67, 0.45)"; ctx.beginPath(); ctx.arc(p.x, p.y, POCKET_R + 2.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#0a0a0b"; ctx.beginPath(); ctx.arc(p.x, p.y, POCKET_R + 1, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(p.x, p.y, POCKET_R, 0, Math.PI * 2); ctx.fill();
-    // Angesagte Tasche → gold
-    if (isCalled) {
-      ctx.save();
-      ctx.strokeStyle = "#d4a043"; ctx.lineWidth = 3;
-      ctx.shadowColor = "#d4a043"; ctx.shadowBlur = 10;
-      ctx.beginPath(); ctx.arc(p.x, p.y, POCKET_R + 7, 0, Math.PI * 2); ctx.stroke();
-      ctx.restore();
-    }
-    // Auswahlmodus → alle Taschen hell hervorheben
-    if (isSelecting) {
-      ctx.save();
-      ctx.strokeStyle = "rgba(76,201,240,0.9)"; ctx.lineWidth = 2.5;
-      ctx.setLineDash([4, 4]);
-      ctx.shadowColor = "#4cc9f0"; ctx.shadowBlur = 8;
-      ctx.beginPath(); ctx.arc(p.x, p.y, POCKET_R + 10, 0, Math.PI * 2); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
+    if (p.type === "side") {
+      // D-förmige Tasche: Halbkreis öffnet sich zur Spielfläche hin (Bande überragt die Öffnung)
+      const isTop = p.y < (PLAY_Y1 + PLAY_Y2) / 2;
+      const ry = isTop ? PLAY_Y1 : PLAY_Y2;
+      const drawD = (r) => {
+        ctx.beginPath();
+        if (isTop) {
+          // Öffnung nach unten (ins Spielfeld): Halbkreis von links nach rechts über Bandenkante
+          ctx.arc(p.x, ry, r, Math.PI, 0, false);
+        } else {
+          // Öffnung nach oben (ins Spielfeld)
+          ctx.arc(p.x, ry, r, 0, Math.PI, false);
+        }
+        ctx.closePath();
+      };
+      ctx.fillStyle = "rgba(212,160,67,0.45)"; drawD(HALF_SIDE_PW + 3); ctx.fill();
+      ctx.fillStyle = "#0a0a0b";               drawD(HALF_SIDE_PW + 1.5); ctx.fill();
+      ctx.fillStyle = "#000";                  drawD(HALF_SIDE_PW); ctx.fill();
+      if (isCalled) {
+        ctx.save();
+        ctx.strokeStyle = "#d4a043"; ctx.lineWidth = 3;
+        ctx.shadowColor = "#d4a043"; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(p.x, ry, HALF_SIDE_PW + 7, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+      if (isSelecting) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(76,201,240,0.9)"; ctx.lineWidth = 2.5;
+        ctx.setLineDash([4, 4]);
+        ctx.shadowColor = "#4cc9f0"; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.arc(p.x, ry, HALF_SIDE_PW + 10, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+    } else {
+      ctx.fillStyle = "rgba(212, 160, 67, 0.45)"; ctx.beginPath(); ctx.arc(p.x, p.y, pr + 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#0a0a0b"; ctx.beginPath(); ctx.arc(p.x, p.y, pr + 1, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(p.x, p.y, pr, 0, Math.PI * 2); ctx.fill();
+      if (isCalled) {
+        ctx.save();
+        ctx.strokeStyle = "#d4a043"; ctx.lineWidth = 3;
+        ctx.shadowColor = "#d4a043"; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(p.x, p.y, pr + 7, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+      if (isSelecting) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(76,201,240,0.9)"; ctx.lineWidth = 2.5;
+        ctx.setLineDash([4, 4]);
+        ctx.shadowColor = "#4cc9f0"; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.arc(p.x, p.y, pr + 10, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
     }
   }
   drawDiamonds();
@@ -1940,7 +2036,7 @@ function drawBall(b) {
 
 function drawAimingHelp() {
   if (game.state !== "aiming" || game.shotInProgress) return;
-  if (game.placingCue) return;
+  if (game.placingCue && cueDragging) return;
   const cue = game.cueBall;
   if (!cue.inPlay) return;
   if (game.mode === "ai" && game.currentPlayer === 1) return;
@@ -1969,19 +2065,21 @@ function drawAimingHelp() {
   if (dy < 0) tCush = Math.min(tCush, (PLAY_Y1 + cue.r - cue.y) / dy);
   if (tCush < hitDist) { hitDist = tCush; endX = cue.x + dx * tCush; endY = cue.y + dy * tCush; hitBall = null; }
   ctx.save();
-  ctx.setLineDash([6, 6]); ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 1.5;
+  ctx.setLineDash([8, 5]); ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(cue.x, cue.y); ctx.lineTo(endX, endY); ctx.stroke();
   ctx.setLineDash([]);
   if (hitBall) {
-    ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(endX, endY, cue.r, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(endX, endY, cue.r, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.10)"; ctx.fill(); ctx.stroke();
     const odx = hitBall.x - endX, ody = hitBall.y - endY;
     const od = Math.hypot(odx, ody);
     if (od > 0.5) {
       const onx = odx / od, ony = ody / od;
-      ctx.setLineDash([3, 4]); ctx.strokeStyle = "rgba(255, 200, 87, 0.6)";
-      ctx.beginPath(); ctx.moveTo(hitBall.x, hitBall.y); ctx.lineTo(hitBall.x + onx * 70, hitBall.y + ony * 70); ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.shadowColor = "rgba(255,200,87,0.5)"; ctx.shadowBlur = 6;
+      ctx.setLineDash([5, 4]); ctx.strokeStyle = "rgba(255,200,87,0.95)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(hitBall.x, hitBall.y); ctx.lineTo(hitBall.x + onx * 120, hitBall.y + ony * 120); ctx.stroke();
+      ctx.setLineDash([]); ctx.shadowBlur = 0;
     }
   }
   drawCueStick(cue.x, cue.y, angle, game.powerPercent);
@@ -2116,6 +2214,7 @@ function loop() {
 
 let lmbDragging = false;
 let rmbDragging = false;
+let cueDragging = false;
 let rmbStart = null;
 const POWER_DRAG_SCALE = 0.55;
 
@@ -2158,7 +2257,7 @@ function applyLayout() {
     canvas.style.width  = '';
     canvas.style.height = '';
   }
-  canvas.style.transform    = '';
+  resetCanvasZoom();
   canvas.style.marginTop    = '';
   canvas.style.marginBottom = '';
   // Button-Sichtbarkeit bei Orientierungswechsel aktualisieren
@@ -2215,7 +2314,17 @@ function handleCanvasDown(e) {
 
   if (game.placingCue) {
     if (e.button === 0) {
-      if (tryPlaceCueBall(p)) { game.placingCue = false; game.ballInHand = false; updateUI(); }
+      const cue = game.cueBall;
+      if (Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 5) {
+        tryPlaceCueBall(p); cueDragging = true; lmbDragging = false;
+      } else {
+        cueDragging = false; lmbDragging = true;
+        updateAimFromPoint(p); setAimStatus("Zielen…");
+      }
+    } else if (e.button === 2) {
+      if (lmbDragging) { lmbDragging = false; setAimStatus("Aim: gesperrt"); }
+      rmbDragging = true; rmbStart = p;
+      game.powerPercent = 0; updatePowerUI();
     }
     return;
   }
@@ -2235,16 +2344,24 @@ function handleCanvasMove(e) {
   if (game.aimLocked) return;
   const p = mousePos(e);
   if (game.placingCue) {
-    const cue = game.cueBall;
-    const b = placementBounds();
-    let nx = clamp(p.x, b.xMin, b.xMax);
-    let ny = clamp(p.y, b.yMin, b.yMax);
-    let ok = true;
-    for (const ball of game.balls) {
-      if (ball === cue || !ball.inPlay) continue;
-      if (Math.hypot(ball.x - nx, ball.y - ny) < (cue.r + ball.r) * 1.0) { ok = false; break; }
+    if (cueDragging) {
+      const cue = game.cueBall;
+      const b = placementBounds();
+      let nx = clamp(p.x, b.xMin, b.xMax);
+      let ny = clamp(p.y, b.yMin, b.yMax);
+      let ok = true;
+      for (const ball of game.balls) {
+        if (ball === cue || !ball.inPlay) continue;
+        if (Math.hypot(ball.x - nx, ball.y - ny) < (cue.r + ball.r) * 1.0) { ok = false; break; }
+      }
+      if (ok) { cue.x = nx; cue.y = ny; }
+    } else if (lmbDragging) {
+      updateAimFromPoint(p);
+    } else if (rmbDragging && rmbStart) {
+      const d = Math.hypot(p.x - rmbStart.x, p.y - rmbStart.y);
+      game.powerPercent = clamp(d * POWER_DRAG_SCALE, 0, 100);
+      updatePowerUI();
     }
-    if (ok) { cue.x = nx; cue.y = ny; }
     return;
   }
   if (game.shotInProgress) return;
@@ -2257,6 +2374,7 @@ function handleCanvasMove(e) {
   }
 }
 function handleCanvasUp(e) {
+  cueDragging = false;
   if (e.button === 0 && lmbDragging) { lmbDragging = false; setAimStatus("Aim: gesperrt"); }
   else if (e.button === 2 && rmbDragging) {
     rmbDragging = false;
@@ -2273,19 +2391,57 @@ canvas.addEventListener("mouseleave", () => {
   if (rmbDragging) { rmbDragging = false; game.powerPercent = 0; updatePowerUI(); rmbStart = null; }
 });
 
-// Touch-Support: Zielen und Platzieren per Finger
+// Touch-Support: Zielen, Platzieren und Pinch-to-Zoom
 canvas.addEventListener("touchstart", (e) => {
   e.preventDefault();
+  if (e.touches.length === 2) {
+    const t0 = e.touches[0], t1 = e.touches[1];
+    _pinchStartDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+    _pinchStartZoom = viewZoom;
+    _pinchStartPanX = viewPanX;
+    _pinchStartPanY = viewPanY;
+    _pinchStartMidX = (t0.clientX + t1.clientX) / 2;
+    _pinchStartMidY = (t0.clientY + t1.clientY) / 2;
+    const rect = canvas.getBoundingClientRect();
+    _pinchCanvasNatLeft = rect.left - viewPanX;
+    _pinchCanvasNatTop  = rect.top  - viewPanY;
+    return;
+  }
+  // Double-Tap setzt Zoom zurück
+  const _now = Date.now();
+  if (_now - _lastTapTime < 300) resetCanvasZoom();
+  _lastTapTime = _now;
   const t = e.touches[0];
   handleCanvasDown({ clientX: t.clientX, clientY: t.clientY, button: 0, preventDefault: ()=>{} });
 }, { passive: false });
 canvas.addEventListener("touchmove", (e) => {
   e.preventDefault();
+  if (e.touches.length === 2 && _pinchStartDist > 0) {
+    const t0 = e.touches[0], t1 = e.touches[1];
+    const dist    = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+    const newZoom = Math.min(Math.max(_pinchStartZoom * (dist / _pinchStartDist), 1.0), 3.0);
+    const midX    = (t0.clientX + t1.clientX) / 2;
+    const midY    = (t0.clientY + t1.clientY) / 2;
+    // Zoom auf Pinch-Mittelpunkt: Ankerpunkt im Canvas-Koordinatensystem bleibt fix
+    const anchorX = (_pinchStartMidX - _pinchCanvasNatLeft - _pinchStartPanX) / _pinchStartZoom;
+    const anchorY = (_pinchStartMidY - _pinchCanvasNatTop  - _pinchStartPanY) / _pinchStartZoom;
+    viewZoom = newZoom;
+    viewPanX = midX - _pinchCanvasNatLeft - anchorX * newZoom;
+    viewPanY = midY - _pinchCanvasNatTop  - anchorY * newZoom;
+    // Clamping: Canvas bleibt im Sichtbereich
+    const dispW = parseFloat(canvas.style.width)  || canvas.offsetWidth;
+    const dispH = parseFloat(canvas.style.height) || canvas.offsetHeight;
+    viewPanX = Math.max(-(dispW * (newZoom - 1)), Math.min(0, viewPanX));
+    viewPanY = Math.max(-(dispH * (newZoom - 1)), Math.min(0, viewPanY));
+    applyCanvasZoom();
+    return;
+  }
   const t = e.touches[0];
   if (t) handleCanvasMove({ clientX: t.clientX, clientY: t.clientY });
 }, { passive: false });
 canvas.addEventListener("touchend", (e) => {
   e.preventDefault();
+  _pinchStartDist = 0;
   handleCanvasUp({ button: 0 });
 }, { passive: false });
 window.addEventListener("keydown", (e) => {
@@ -2521,7 +2677,6 @@ function updateShootButton() {
   const needsPocket = needs8PocketCall();
   const canShoot = game.state === "aiming"
     && !game.shotInProgress
-    && !game.placingCue
     && game.cueBall.inPlay
     && !(game.mode === "ai" && game.currentPlayer === 1)
     && !needsCall
