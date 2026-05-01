@@ -2811,11 +2811,12 @@ function needs8PocketCall() {
 function updateShootButton() {
   const needsCall = needsGroupCall();
   const needsPocket = needs8PocketCall();
+  // On open table: button enabled once player has actively aimed (pressing STOSS triggers the call dialog)
   const canShoot = game.state === "aiming"
     && !game.shotInProgress
     && game.cueBall.inPlay
     && !(game.mode === "ai" && game.currentPlayer === 1)
-    && !needsCall
+    && (!needsCall || game.aimActive)
     && !game.awaitingPushOutDecision
     && !game.selecting8Pocket;
   ui.btnShoot.disabled = !canShoot;
