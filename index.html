@@ -488,23 +488,27 @@
   #callShotBanner .label { flex: 1; font-size: 14px; font-weight: 600; }
   #callShotBanner .label .player-name { color: var(--accent); }
   #callShotBanner .label .sub { display: block; font-size: 11px; opacity: 0.75; font-weight: 400; margin-top: 2px; }
-  #callShotBanner .actions { display: flex; gap: 10px; }
+  #callShotBanner .actions { display: flex; gap: 10px; align-items: center; }
   #callShotBanner .actions button {
     padding: 10px 20px; font-size: 12px; font-weight: 700;
     border: 0; border-radius: 999px; cursor: pointer;
-    min-width: 130px;
+    min-width: 100px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     transition: all 0.2s;
   }
   #callShotBanner .actions button:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
   #callShotBanner .actions button:active { transform: translateY(2px); }
-  #callSolid { background: #d62828; color: white; border: 2px solid #b71c1c; }
-  #callStripe {
-    background: linear-gradient(180deg, #fff 0 30%, #1d4ed8 30% 70%, #fff 70% 100%);
-    color: #111; border: 2px solid #1d4ed8;
-    text-shadow: 0 0 3px #fff;
+  #callConfirmYes { background: #2a9d4a; color: white; }
+  #callChooseOther { background: rgba(255,255,255,0.12); color: #fff; }
+  #callBallButtons button {
+    padding: 8px 14px; font-size: 12px; font-weight: 800;
+    border: 2px solid transparent; border-radius: 999px; cursor: pointer;
+    min-width: 44px; transition: transform 0.15s;
   }
+  #callBallButtons button:hover { transform: scale(1.12); }
+  .call-btn-solid { background: #d62828; color: white; border-color: #b71c1c !important; }
+  .call-btn-stripe { background: linear-gradient(180deg,#fff 0 30%,#1d4ed8 30% 70%,#fff 70% 100%); color: #111; border-color: #1d4ed8 !important; }
 
   #refAnnounce {
     position: fixed;
@@ -830,13 +834,14 @@
 
   <div id="callShotBanner">
     <div class="label">
-      <span class="player-name" id="callShotPlayerLine">Spieler</span>: Welche Gruppe spielst du?
-      <span class="sub">Versenkst du eine Kugel der gewählten Gruppe → Zuweisung steht. Verfehlt → Tisch bleibt offen, Gegner ist dran.</span>
+      <span class="player-name" id="callShotPlayerLine">Spieler</span>
+      <span id="callShotSub" class="sub"></span>
     </div>
-    <div class="actions">
-      <button id="callSolid">● Voll (1–7)</button>
-      <button id="callStripe">≡ Halb (9–15)</button>
+    <div id="callConfirmArea" class="actions">
+      <button id="callConfirmYes">✓ Bestätigen</button>
+      <button id="callChooseOther">Andere Kugel</button>
     </div>
+    <div id="callBallButtons" class="actions" style="display:none;flex-wrap:wrap;gap:6px;"></div>
   </div>
 
   <div id="playArea">
@@ -974,7 +979,7 @@ const game = {
   state: "aiming", shotInProgress: false,
   firstHit: null, ballsPottedThisShot: [], cuePotted: false, anyCushionAfterFirstHit: false,
   ballInHand: false, endMessage: "", open8ball: true, winner: null,
-  isBreakShot: true, calledGroup: null, kitchenOnly: false,
+  isBreakShot: true, calledBall: null, kitchenOnly: false,
   aimAngle: 0, aimLocked: false, powerPercent: 50,
   spinX: 0, spinY: 0,
   spinPending: { x:0, y:0, dirX:0, dirY:0, power:0, used:false },
@@ -1394,7 +1399,7 @@ function startShot() {
   if (game.awaitingPushOutDecision) return;
   if (game.selecting8Pocket) return;
   game.kitchenOnly = false;
-  if (typeof needsGroupCall === "function" && needsGroupCall()) { maybeShowCallModal(); return; }
+  if (typeof needsGroupCall === "function" && needsGroupCall()) { _pendingGroupCallShot = true; maybeShowCallModal(); return; }
   // 8-Ball: Tasche für die 8 muss vor dem Stoß angesagt werden
   if (needs8PocketCall()) { game.selecting8Pocket = true; updateUI(); return; }
   const power = (game.powerPercent / 100) * MAX_POWER;
@@ -1458,17 +1463,17 @@ function handle8BallShot() {
   const other = game.players[1 - game.currentPlayer];
   const potted = game.ballsPottedThisShot;
   const wasBreak = game.isBreakShot;
-  const calledGroup = game.calledGroup;
+  const calledBall = game.calledBall;
   const calledPocket = game.called8Pocket;
   const pottedPocketIdx = game.ball8PocketIdx;
   game.isBreakShot = false;
-  game.calledGroup = null;
+  game.calledBall = null;
   game.called8Pocket = null;
   game.ball8PocketIdx = -1;
   let foul = false, foulReason = "";
   if (game.cuePotted) { foul = true; foulReason = "Weiße versenkt"; }
   if (game.firstHit === null && !foul) { foul = true; foulReason = "Keine Kugel getroffen"; }
-  if (!foul && game.firstHit === 8 && !canTarget8Ball(me) && !game.open8ball) { foul = true; foulReason = "Schwarze zuerst getroffen"; }
+  if (!foul && game.firstHit === 8 && !canTarget8Ball(me)) { foul = true; foulReason = "Schwarze zuerst getroffen"; }
   if (!foul && me.group && !game.open8ball) {
     if (game.firstHit !== null && game.firstHit !== 8) {
       const isFirstSolid = game.firstHit >= 1 && game.firstHit <= 7;
@@ -1534,7 +1539,7 @@ function handle8BallShot() {
     if (!pottedAny) game.currentPlayer = 1 - game.currentPlayer;
     return;
   }
-  if (game.open8ball && calledGroup) {
+  if (game.open8ball && !wasBreak) {
     if (foul) {
       game.foulMessage = "Foul: " + foulReason;
       game.foulTimer = 240; game.ballInHand = true;
@@ -1543,25 +1548,26 @@ function handle8BallShot() {
       if (!game.cuePotted) game.placingCue = true;
       return;
     }
-    const calledNums = calledGroup === "solid" ? [1,2,3,4,5,6,7] : [9,10,11,12,13,14,15];
-    const pottedCalled = potted.some(n => calledNums.includes(n));
-    if (pottedCalled) {
-      me.group = calledGroup;
-      other.group = calledGroup === "solid" ? "stripe" : "solid";
+    // Group assignment: calledBall (pocketed directly or via combo) determines group
+    if (calledBall && potted.includes(calledBall)) {
+      const myGroup = (calledBall >= 1 && calledBall <= 7) ? "solid" : "stripe";
+      me.group = myGroup;
+      other.group = myGroup === "solid" ? "stripe" : "solid";
       game.open8ball = false;
       for (const n of potted) {
         if (n === 0 || n === 8) continue;
         if (isMyGroupBall(n, me)) me.potted.push(n);
         else if (isMyGroupBall(n, other)) other.potted.push(n);
       }
-      return;
-    } else {
-      game.foulMessage = `Angesagte Gruppe (${calledGroup === "solid" ? "Voll" : "Halb"}) nicht getroffen – Tisch bleibt offen`;
-      game.foulTimer = 240;
-      showRefAnnounce("Falsche Kugel zuerst", `Angesagte Gruppe (${calledGroup === "solid" ? "Voll" : "Halb"}) wurde nicht getroffen – Tisch bleibt offen.`);
-      game.currentPlayer = 1 - game.currentPlayer;
-      return;
+      return; // player continues their turn
     }
+    // Called ball not pocketed → switch player, table stays open
+    if (calledBall) {
+      game.foulMessage = `Kugel ${calledBall} nicht versenkt – Tisch bleibt offen`;
+      game.foulTimer = 240;
+    }
+    game.currentPlayer = 1 - game.currentPlayer;
+    return;
   }
   const myGroupPotted = potted.some(n => isMyGroupBall(n, me));
   for (const n of potted) {
@@ -1809,21 +1815,8 @@ function aiPlanShot() {
     const b = game.balls.find(bb => bb.num === low);
     if (b) targets.push(b);
   } else {
-    if (game.variant === "8ball" && game.open8ball && !game.isBreakShot && !game.calledGroup) {
-      const inPlay = game.balls.filter(b => b.inPlay && !b.isCue);
-      const solidsLeft = inPlay.filter(b => b.num >= 1 && b.num <= 7).length;
-      const stripesLeft = inPlay.filter(b => b.num >= 9 && b.num <= 15).length;
-      game.calledGroup = (solidsLeft > stripesLeft) ? "solid"
-                       : (stripesLeft > solidsLeft) ? "stripe"
-                       : (Math.random() < 0.5 ? "solid" : "stripe");
-    }
     if (game.open8ball || !me.group) {
-      if (game.calledGroup) {
-        const allowedNums = game.calledGroup === "solid" ? [1,2,3,4,5,6,7] : [9,10,11,12,13,14,15];
-        targets = game.balls.filter(b => b.inPlay && !b.isCue && allowedNums.includes(b.num));
-      } else {
-        targets = game.balls.filter(b => b.inPlay && !b.isCue && b.num !== 8);
-      }
+      targets = game.balls.filter(b => b.inPlay && !b.isCue && b.num !== 8);
     } else {
       const cleared = playerClearedGroup(me);
       if (cleared) {
@@ -1850,10 +1843,27 @@ function aiPlanShot() {
       if (!clearPath(t, p.x, p.y, t)) continue;
       const dotN = (dxTP / dTP) * (dxCG / dCG) + (dyTP / dTP) * (dyCG / dCG);
       if (dotN < 0.2) continue;
+      // On open table: skip shots aimed too close to the 8-ball (error may cause accidental foul)
+      if (game.open8ball) {
+        const eight8 = game.balls.find(b => b.num === 8 && b.inPlay);
+        if (eight8) {
+          const dx8 = eight8.x - cue.x, dy8 = eight8.y - cue.y;
+          const d8 = Math.hypot(dx8, dy8);
+          if (d8 < dCG) {
+            const shotAngle = Math.atan2(dyCG, dxCG);
+            const angle8 = Math.atan2(dy8, dx8);
+            let diff = Math.abs(angle8 - shotAngle);
+            if (diff > Math.PI) diff = 2 * Math.PI - diff;
+            const angularRadius8 = Math.atan2(BALL_R * 1.5, d8);
+            const errGuard = { easy: 0.15, medium: 0.08, hard: 0.04 }[game.difficulty] ?? 0.08;
+            if (diff < angularRadius8 + errGuard) continue;
+          }
+        }
+      }
       const score = dotN * 100 - dCG * 0.05 - dTP * 0.05;
       const distFactor = clamp((dCG + dTP) / 1500, 0, 1);
       const powerPercent = (0.35 + 0.65 * distFactor) * 100;
-      validShots.push({ score, angle: Math.atan2(dyCG, dxCG), powerPercent, pocketIdx: POCKETS.indexOf(p) });
+      validShots.push({ score, angle: Math.atan2(dyCG, dxCG), powerPercent, pocketIdx: POCKETS.indexOf(p), targetNum: t.num });
     }
   }
   validShots.sort((a, b) => b.score - a.score);
@@ -1870,6 +1880,10 @@ function aiPlanShot() {
     } else {
       bestShot = { angle: Math.random() * Math.PI * 2, powerPercent: 45, pocketIdx: -1 };
     }
+  }
+  // KI: calledBall für offenen Tisch setzen
+  if (game.variant === "8ball" && game.open8ball && bestShot && bestShot.targetNum) {
+    game.calledBall = bestShot.targetNum;
   }
   // KI: Tasche für die 8 automatisch ansagen
   if (game.variant === "8ball" && canTarget8Ball(me)) {
@@ -2595,8 +2609,6 @@ const ui = {
   endMenu: document.getElementById("endMenu"),
   callShotBanner: document.getElementById("callShotBanner"),
   callShotPlayerLine: document.getElementById("callShotPlayerLine"),
-  callSolid: document.getElementById("callSolid"),
-  callStripe: document.getElementById("callStripe"),
   pushOutDecision: document.getElementById("pushOutDecision"),
   pushOutDecisionPlayer: document.getElementById("pushOutDecisionPlayer"),
   btnPushOutAccept: document.getElementById("btnPushOutAccept"),
@@ -2605,13 +2617,31 @@ const ui = {
   btnRotateTable: document.getElementById("btnRotateTable"),
 };
 
-function handleCallChoice(group) {
-  game.calledGroup = group;
+let _pendingGroupCallShot = false;
+function handleCallChoice(num) {
+  game.calledBall = num;
   ui.callShotBanner.classList.remove("show");
   updateUI();
+  if (_pendingGroupCallShot) { _pendingGroupCallShot = false; startShot(); }
 }
-ui.callSolid.addEventListener("click", () => handleCallChoice("solid"));
-ui.callStripe.addEventListener("click", () => handleCallChoice("stripe"));
+document.getElementById("callConfirmYes").addEventListener("click", () => {
+  const det = _detectedCallBall;
+  if (det) handleCallChoice(det.num);
+});
+document.getElementById("callChooseOther").addEventListener("click", () => {
+  document.getElementById("callConfirmArea").style.display = "none";
+  const ballBtns = document.getElementById("callBallButtons");
+  ballBtns.style.display = "flex";
+  ballBtns.innerHTML = "";
+  for (const b of game.balls) {
+    if (!b.inPlay || b.isCue || b.num === 8) continue;
+    const btn = document.createElement("button");
+    btn.textContent = b.num;
+    btn.className = (b.num >= 1 && b.num <= 7) ? "call-btn-solid" : "call-btn-stripe";
+    btn.addEventListener("click", () => handleCallChoice(b.num));
+    ballBtns.appendChild(btn);
+  }
+});
 
 // Push-Out: Gegner entscheidet
 ui.btnPushOutAccept.addEventListener("click", () => {
@@ -2792,14 +2822,56 @@ function needsGroupCall() {
     && !game.placingCue
     && !game.shotInProgress
     && game.state === "aiming"
-    && !game.calledGroup
+    && !game.calledBall
     && game.mode !== "solo"
     && !(game.mode === "ai" && game.currentPlayer === 1);
 }
 
+let _detectedCallBall = null;
+function detectAimedBall() {
+  const cue = game.cueBall;
+  const dx = Math.cos(game.aimAngle), dy = Math.sin(game.aimAngle);
+  let closest = null, closestT = Infinity;
+  for (const b of game.balls) {
+    if (!b.inPlay || b.isCue || b.num === 8) continue;
+    const vx = b.x - cue.x, vy = b.y - cue.y;
+    const tRay = vx * dx + vy * dy;
+    if (tRay < 0) continue;
+    const perpDist = Math.hypot(vx - tRay * dx, vy - tRay * dy);
+    if (perpDist < BALL_R * 2.8 && tRay < closestT) {
+      closestT = tRay;
+      closest = b;
+    }
+  }
+  return closest;
+}
 function maybeShowCallModal() {
   if (needsGroupCall()) {
-    ui.callShotPlayerLine.textContent = game.players[game.currentPlayer].name;
+    ui.callShotPlayerLine.textContent = " " + game.players[game.currentPlayer].name;
+    _detectedCallBall = detectAimedBall();
+    // Reset modal to phase 1
+    document.getElementById("callConfirmArea").style.display = "";
+    document.getElementById("callBallButtons").style.display = "none";
+    if (_detectedCallBall) {
+      const n = _detectedCallBall.num;
+      const label = n >= 1 && n <= 7 ? `Volle ${n}` : `Halbe ${n}`;
+      document.getElementById("callShotSub").textContent = `${label} ansagen und versenken?`;
+    } else {
+      document.getElementById("callShotSub").textContent = "Keine Kugel gezielt – bitte wählen:";
+      document.getElementById("callConfirmArea").style.display = "none";
+      // Show ball list immediately
+      const ballBtns = document.getElementById("callBallButtons");
+      ballBtns.style.display = "flex";
+      ballBtns.innerHTML = "";
+      for (const b of game.balls) {
+        if (!b.inPlay || b.isCue || b.num === 8) continue;
+        const btn = document.createElement("button");
+        btn.textContent = b.num;
+        btn.className = (b.num >= 1 && b.num <= 7) ? "call-btn-solid" : "call-btn-stripe";
+        btn.addEventListener("click", () => handleCallChoice(b.num));
+        ballBtns.appendChild(btn);
+      }
+    }
     ui.callShotBanner.classList.add("show");
   } else {
     ui.callShotBanner.classList.remove("show");
@@ -2847,9 +2919,10 @@ function updateUI() {
     ui.statusLine.textContent = "Übungsmodus – versenke so viele Kugeln wie möglich";
   } else if (game.variant === "8ball" && game.isBreakShot) {
     ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: Anstoß!`;
-  } else if (game.variant === "8ball" && game.open8ball && game.calledGroup) {
-    const grp = game.calledGroup === "solid" ? "Voll (1–7)" : "Halb (9–15)";
-    ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: angesagt ${grp}`;
+  } else if (game.variant === "8ball" && game.open8ball && game.calledBall) {
+    const n = game.calledBall;
+    const label = n >= 1 && n <= 7 ? `Volle ${n}` : `Halbe ${n}`;
+    ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: angesagt ${label}`;
   } else if (needsGroupCall()) {
     ui.statusLine.textContent = `${game.players[game.currentPlayer].name}: Gruppe ansagen!`;
   } else if (game.variant === "9ball" && game.pushOutAvailable && game.mode !== "solo" && !(game.mode === "ai" && game.currentPlayer === 1)) {
@@ -2936,7 +3009,7 @@ function newGame() {
   game.firstHit = null; game.ballsPottedThisShot = [];
   game.cuePotted = false; game.ballInHand = false;
   game.placingCue = true; game.kitchenOnly = true;
-  game.open8ball = true; game.isBreakShot = true; game.calledGroup = null;
+  game.open8ball = true; game.isBreakShot = true; game.calledBall = null;
   game.endMessage = ""; game.foulMessage = ""; game.foulTimer = 0;
   game.aimAngle = 0; game.powerPercent = 0;
   game.spinX = 0; game.spinY = 0;
