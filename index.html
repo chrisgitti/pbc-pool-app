@@ -1393,7 +1393,7 @@ function applySpinOnCushion(cue, side) {
 
 function startShot() {
   if (game.state !== "aiming" || game.shotInProgress) return;
-  if (game.placingCue) { game.placingCue = false; game.ballInHand = false; }
+  game.placingCue = false; game.ballInHand = false;
   if (!game.cueBall.inPlay) return;
   if (game.powerPercent < 1) return;
   if (game.awaitingPushOutDecision) return;
@@ -2419,6 +2419,15 @@ function handleCanvasDown(e) {
   }
   if (game.selecting8Pocket) return;
 
+  // BallInHand re-entry: after aim mode, clicking near cue ball re-enters placement
+  if (game.ballInHand && !game.placingCue && e.button === 0) {
+    const cue = game.cueBall;
+    if (Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 8) {
+      game.placingCue = true; tryPlaceCueBall(p); cueDragging = true; lmbDragging = false;
+      return;
+    }
+  }
+
   if (game.placingCue) {
     if (e.button === 0) {
       const cue = game.cueBall;
@@ -2483,6 +2492,7 @@ function handleCanvasMove(e) {
   }
 }
 function handleCanvasUp(e) {
+  if (cueDragging && game.placingCue && game.ballInHand) game.placingCue = false;
   cueDragging = false;
   if (e.button === 0 && lmbDragging) { lmbDragging = false; setAimStatus("Aim: gesperrt"); }
   else if (e.button === 2 && rmbDragging) {
