@@ -749,7 +749,7 @@
     <h3>9-Ball Aufstellung</h3>
     <div class="options" id="optRack9">
       <div class="opt selected" data-val="diamond">Diamant (WPA)</div>
-      <div class="opt" data-val="triangle">Dreieck</div>
+      <div class="opt" data-val="vorgelagert">Vorgelagert</div>
     </div>
   </div>
 
@@ -1146,16 +1146,16 @@ function setup9BallRack() {
   }
 }
 
-function setup9BallTriangle() {
+function setup9BallVorgelagert() {
   game.balls = [];
   const cue = new Ball(0, PLAY_X1 + PLAY_W * 0.25, PLAY_Y1 + PLAY_H * 0.5);
   game.cueBall = cue; game.balls.push(cue);
-  const apexX = PLAY_X1 + PLAY_W * 0.75;
-  const apexY = PLAY_Y1 + PLAY_H * 0.5;
   const dx = BALL_R * 2 * Math.cos(Math.PI / 6) + 0.3;
   const dy = BALL_R * 2 + 0.2;
-  // Dreieck: 4 Reihen 1+2+3+3, 1-Ball an Spitze, 9-Ball in Reihenmitte
-  const rack = [[1],[2,3],[4,9,5],[6,7,8]];
+  // 1-Ball liegt eine Kugelbreite vor dem Fußpunkt → Fußpunkt fällt zwischen Reihe 0 und 1
+  const apexX = PLAY_X1 + PLAY_W * 0.75 - dx;
+  const apexY = PLAY_Y1 + PLAY_H * 0.5;
+  const rack = [[1],[2,3],[4,9,5],[6,7],[8]];
   for (let row = 0; row < rack.length; row++) {
     const rowBalls = rack[row];
     const rowX = apexX + row * dx;
@@ -2920,7 +2920,7 @@ function newGame() {
   updatePowerUI(); setAimStatus("Aim: frei");
   drawSpinCanvas(); updateSpinLabel();
   if (game.variant === "8ball") setup8BallRack();
-  else if (game.variant === "9ball") { if (game.rack9 === "triangle") setup9BallTriangle(); else setup9BallRack(); }
+  else if (game.variant === "9ball") { if (game.rack9 === "vorgelagert") setup9BallVorgelagert(); else setup9BallRack(); }
   else if (game.variant === "drill15") { game.kitchenOnly = false; game.mode = "solo"; setupDrill15(); }
   else if (game.variant === "basis") { game.kitchenOnly = false; game.mode = "solo"; setupBasis(); }
   ui.endScreen.classList.remove("show");
