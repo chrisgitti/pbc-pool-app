@@ -2119,9 +2119,11 @@ let rmbDragging = false;
 let rmbStart = null;
 const POWER_DRAG_SCALE = 0.55;
 
+function isAutoPortrait() {
+  return window.innerWidth < 768 && window.innerHeight > window.innerWidth;
+}
 function isPortraitMode() {
-  return game.drill15Rotated ||
-         (window.innerWidth < 768 && window.innerHeight > window.innerWidth);
+  return game.drill15Rotated || isAutoPortrait();
 }
 
 function mousePos(e) {
@@ -2159,6 +2161,8 @@ function applyLayout() {
   canvas.style.transform    = '';
   canvas.style.marginTop    = '';
   canvas.style.marginBottom = '';
+  // Button-Sichtbarkeit bei Orientierungswechsel aktualisieren
+  if (typeof updateUI === 'function') updateUI();
 }
 function updateAimFromPoint(p) {
   const cue = game.cueBall;
@@ -2613,7 +2617,10 @@ function updateUI() {
     && !(game.mode === "ai" && game.currentPlayer === 1);
   ui.btnPushOut.style.display = showPushOutBtn ? "" : "none";
 
-  ui.btnRotateTable.style.display = (game.variant === "drill15") ? "" : "none";
+  // Rotate-Button nur bei drill-15 zeigen – und nur wenn nicht auto-portrait aktiv
+  // (auf Handy im Hochformat dreht applyLayout() den Tisch bereits automatisch)
+  ui.btnRotateTable.style.display =
+    (game.variant === "drill15" && !isAutoPortrait()) ? "" : "none";
   maybeShowCallModal();
   ui.foulLine.textContent = game.foulMessage || "";
   ui.p1Info.textContent = playerInfoText(game.players[0]);
