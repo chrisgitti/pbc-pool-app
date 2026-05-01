@@ -997,6 +997,7 @@ let _pinchStartDist = 0, _pinchStartZoom = 1;
 let _pinchStartPanX = 0, _pinchStartPanY = 0;
 let _pinchStartMidX = 0, _pinchStartMidY = 0;
 let _pinchCanvasNatLeft = 0, _pinchCanvasNatTop = 0;
+let _pinchSavedAimAngle = null;
 let _lastTapTime = 0;
 
 function applyCanvasZoom() {
@@ -1467,7 +1468,7 @@ function handle8BallShot() {
   let foul = false, foulReason = "";
   if (game.cuePotted) { foul = true; foulReason = "Weiße versenkt"; }
   if (game.firstHit === null && !foul) { foul = true; foulReason = "Keine Kugel getroffen"; }
-  if (!foul && game.firstHit === 8 && !canTarget8Ball(me)) { foul = true; foulReason = "Schwarze zuerst getroffen"; }
+  if (!foul && game.firstHit === 8 && !canTarget8Ball(me) && !game.open8ball) { foul = true; foulReason = "Schwarze zuerst getroffen"; }
   if (!foul && me.group && !game.open8ball) {
     if (game.firstHit !== null && game.firstHit !== 8) {
       const isFirstSolid = game.firstHit >= 1 && game.firstHit <= 7;
@@ -2401,7 +2402,9 @@ function handleCanvasDown(e) {
   if (game.placingCue) {
     if (e.button === 0) {
       const cue = game.cueBall;
-      if (Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 5) {
+      // Larger touch radius on mobile (ballInHand) so dragging starts reliably
+      const pickRadius = game.ballInHand ? cue.r * 18 : cue.r * 5;
+      if (Math.hypot(p.x - cue.x, p.y - cue.y) < pickRadius) {
         tryPlaceCueBall(p); cueDragging = true; lmbDragging = false;
       } else {
         cueDragging = false; lmbDragging = true;
@@ -2491,6 +2494,9 @@ canvas.addEventListener("touchstart", (e) => {
     const rect = canvas.getBoundingClientRect();
     _pinchCanvasNatLeft = rect.left - viewPanX;
     _pinchCanvasNatTop  = rect.top  - viewPanY;
+    // Lock aim so single-finger aim-drag from the first touch doesn't shift the angle
+    _pinchSavedAimAngle = game.aimAngle;
+    lmbDragging = false;
     return;
   }
   // Double-Tap setzt Zoom zurück
@@ -2527,7 +2533,12 @@ canvas.addEventListener("touchmove", (e) => {
 }, { passive: false });
 canvas.addEventListener("touchend", (e) => {
   e.preventDefault();
+  if (_pinchStartDist > 0 && _pinchSavedAimAngle !== null) {
+    // Restore aim angle that was locked when pinch started
+    game.aimAngle = _pinchSavedAimAngle;
+  }
   _pinchStartDist = 0;
+  _pinchSavedAimAngle = null;
   handleCanvasUp({ button: 0 });
 }, { passive: false });
 window.addEventListener("keydown", (e) => {
