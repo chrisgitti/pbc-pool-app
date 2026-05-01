@@ -2131,8 +2131,7 @@ function drawBall(b) {
 
 function drawAimingHelp() {
   if (game.state !== "aiming" || game.shotInProgress) return;
-  if (game.placingCue && cueDragging) return;
-  if (!game.aimActive) return;
+  if (cueDragging) return;
   const cue = game.cueBall;
   if (!cue.inPlay) return;
   if (game.mode === "ai" && game.currentPlayer === 1) return;
@@ -2492,7 +2491,7 @@ function handleCanvasMove(e) {
   }
 }
 function handleCanvasUp(e) {
-  if (cueDragging && game.placingCue && game.ballInHand) game.placingCue = false;
+  if (cueDragging && game.placingCue) game.placingCue = false;
   cueDragging = false;
   if (e.button === 0 && lmbDragging) { lmbDragging = false; setAimStatus("Aim: gesperrt"); }
   else if (e.button === 2 && rmbDragging) {
@@ -3024,7 +3023,7 @@ function newGame() {
   game.currentPlayer = 0;
   game.state = "aiming"; game.shotInProgress = false;
   game.firstHit = null; game.ballsPottedThisShot = [];
-  game.cuePotted = false; game.ballInHand = false;
+  game.cuePotted = false; game.ballInHand = true;
   game.placingCue = true; game.kitchenOnly = true;
   game.open8ball = true; game.isBreakShot = true; game.calledBall = null;
   game.endMessage = ""; game.foulMessage = ""; game.foulTimer = 0;
