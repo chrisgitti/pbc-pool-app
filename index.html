@@ -766,9 +766,9 @@
   <div class="menu-section" id="aiSection" style="display:none;">
     <h3>KI-Schwierigkeit</h3>
     <div class="options" id="optDiff">
-      <div class="opt" data-val="easy">Leicht</div>
-      <div class="opt selected" data-val="medium">Mittel</div>
-      <div class="opt" data-val="hard">Schwer</div>
+      <div class="opt" data-val="easy">Anfänger</div>
+      <div class="opt selected" data-val="medium">Fortgeschrittener</div>
+      <div class="opt" data-val="hard">Profi</div>
     </div>
   </div>
 
@@ -1834,7 +1834,7 @@ function aiPlanShot() {
     }
   }
   if (targets.length === 0) targets = game.balls.filter(b => b.inPlay && !b.isCue);
-  let bestShot = null, bestScore = -Infinity;
+  const validShots = [];
   for (const t of targets) {
     for (const p of POCKETS) {
       const dxTP = p.x - t.x, dyTP = p.y - t.y;
@@ -1850,13 +1850,17 @@ function aiPlanShot() {
       const dotN = (dxTP / dTP) * (dxCG / dCG) + (dyTP / dTP) * (dyCG / dCG);
       if (dotN < 0.2) continue;
       const score = dotN * 100 - dCG * 0.05 - dTP * 0.05;
-      if (score > bestScore) {
-        bestScore = score;
-        const distFactor = clamp((dCG + dTP) / 1500, 0, 1);
-        const powerPercent = (0.35 + 0.65 * distFactor) * 100;
-        bestShot = { angle: Math.atan2(dyCG, dxCG), powerPercent, pocketIdx: POCKETS.indexOf(p) };
-      }
+      const distFactor = clamp((dCG + dTP) / 1500, 0, 1);
+      const powerPercent = (0.35 + 0.65 * distFactor) * 100;
+      validShots.push({ score, angle: Math.atan2(dyCG, dxCG), powerPercent, pocketIdx: POCKETS.indexOf(p) });
     }
+  }
+  validShots.sort((a, b) => b.score - a.score);
+  let bestShot = validShots.length > 0 ? validShots[0] : null;
+  // Anfänger: manchmal einen schlechteren Schuss wählen
+  if (game.difficulty === "easy" && validShots.length > 1 && Math.random() < 0.45) {
+    const maxIdx = Math.min(3, validShots.length - 1);
+    bestShot = validShots[Math.ceil(Math.random() * maxIdx)];
   }
   if (!bestShot) {
     if (targets.length > 0) {
@@ -1871,10 +1875,12 @@ function aiPlanShot() {
     game.called8Pocket = bestShot.pocketIdx >= 0 ? bestShot.pocketIdx : 0;
     game.selecting8Pocket = false;
   }
-  const errMap = { easy: 0.13, medium: 0.06, hard: 0.02 };
-  const err = errMap[game.difficulty] ?? 0.06;
-  bestShot.angle += (Math.random() - 0.5) * err * 2;
-  bestShot.powerPercent *= 1 + (Math.random() - 0.5) * 0.1;
+  const errMap      = { easy: 0.10, medium: 0.035, hard: 0.008 };
+  const powerVarMap = { easy: 0.25, medium: 0.10,  hard: 0.04  };
+  const err      = errMap[game.difficulty]      ?? 0.035;
+  const powerVar = powerVarMap[game.difficulty] ?? 0.10;
+  bestShot.angle        += (Math.random() - 0.5) * err * 2;
+  bestShot.powerPercent *= 1 + (Math.random() - 0.5) * powerVar;
   game.aimAngle = bestShot.angle;
   game.powerPercent = clamp(bestShot.powerPercent, 5, 100);
   game.spinX = 0; game.spinY = 0;
@@ -2148,7 +2154,16 @@ function drawAimingHelp() {
       const onx = odx / od, ony = ody / od;
       ctx.shadowColor = "rgba(255,200,87,0.5)"; ctx.shadowBlur = 6;
       ctx.setLineDash([5, 4]); ctx.strokeStyle = "rgba(255,200,87,0.95)"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(hitBall.x, hitBall.y); ctx.lineTo(hitBall.x + onx * 120, hitBall.y + ony * 120); ctx.stroke();
+      let objLineLen = 120;
+      if (game.difficulty === "easy") {
+        let tBound = Infinity;
+        if (onx > 0.001) tBound = Math.min(tBound, (PLAY_X2 - hitBall.x) / onx);
+        if (onx < -0.001) tBound = Math.min(tBound, (PLAY_X1 - hitBall.x) / onx);
+        if (ony > 0.001) tBound = Math.min(tBound, (PLAY_Y2 - hitBall.y) / ony);
+        if (ony < -0.001) tBound = Math.min(tBound, (PLAY_Y1 - hitBall.y) / ony);
+        if (tBound < Infinity) objLineLen = tBound;
+      }
+      ctx.beginPath(); ctx.moveTo(hitBall.x, hitBall.y); ctx.lineTo(hitBall.x + onx * objLineLen, hitBall.y + ony * objLineLen); ctx.stroke();
       ctx.setLineDash([]); ctx.shadowBlur = 0;
     }
   }
