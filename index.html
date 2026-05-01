@@ -625,6 +625,71 @@
     .panel-title { font-size: 9px; }
   }
   #spinCanvas { touch-action: none; }
+
+  /* ── Portrait-Modus (Phone hochkant, JS setzt body.portrait-mode) ── */
+  body.portrait-mode #app {
+    justify-content: flex-start;
+    align-items: center;
+    padding: 6px 6px 0;
+    gap: 4px;
+    overflow: hidden;
+  }
+  body.portrait-mode .brand-chip { display: none; }
+  body.portrait-mode #scoreboard {
+    grid-template-columns: 1fr auto 1fr;
+    padding: 6px 10px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  body.portrait-mode #playArea {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+    gap: 4px;
+  }
+  body.portrait-mode #gameCanvas {
+    max-width: 100%;
+  }
+  /* Compact Controls Bar */
+  body.portrait-mode #controlPanel {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 6px 10px;
+    gap: 8px;
+  }
+  body.portrait-mode .aim-section { display: none; }
+  body.portrait-mode .power-section { flex: 1; min-width: 0; }
+  body.portrait-mode .power-value { font-size: 16px; }
+  body.portrait-mode .spin-section { flex: 0 0 auto; }
+  body.portrait-mode #spinCanvas { width: 60px; height: 60px; }
+  body.portrait-mode .spin-label { font-size: 10px; }
+  body.portrait-mode .spin-reset { padding: 3px 10px; font-size: 9px; }
+  body.portrait-mode #btnShoot {
+    padding: 12px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+  body.portrait-mode #btnShoot .hint { display: none; }
+  body.portrait-mode .ctrl-hint { display: none; }
+  body.portrait-mode .panel-title { font-size: 9px; margin-bottom: 4px; }
+  body.portrait-mode #bottomControls {
+    width: 100%;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 0 6px;
+  }
+  body.portrait-mode #bottomControls button {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
 </style>
 </head>
 <body>
@@ -1976,7 +2041,7 @@ function roundRect(ctx, x, y, w, h, r, fill, stroke) {
 
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (game.drill15Rotated) {
+  if (isPortraitMode()) {
     // Buffer is H×W (500×920). Transform: world (wx,wy) → buffer (wy, W-wx).
     // ctx.translate(0,W) then ctx.rotate(-π/2) achieves this.
     ctx.save();
@@ -2054,9 +2119,14 @@ let rmbDragging = false;
 let rmbStart = null;
 const POWER_DRAG_SCALE = 0.55;
 
+function isPortraitMode() {
+  return game.drill15Rotated ||
+         (window.innerWidth < 768 && window.innerHeight > window.innerWidth);
+}
+
 function mousePos(e) {
   const r = canvas.getBoundingClientRect();
-  if (game.drill15Rotated) {
+  if (isPortraitMode()) {
     // Canvas buffer is H×W (500×920). Render transform maps world (wx,wy) → buffer (wy, W-wx).
     // Inverse: buffer (cpx,cpy) → world (W-cpy, cpx).
     const cpx = (e.clientX - r.left) * (H / r.width);
@@ -2067,23 +2137,27 @@ function mousePos(e) {
   return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
 }
 
-function applyTableRotation() {
-  if (game.drill15Rotated) {
-    // Resize buffer to portrait (H×W = 500×920)
+function applyLayout() {
+  const portrait = isPortraitMode();
+  document.body.classList.toggle('portrait-mode', portrait);
+  if (portrait) {
     canvas.width  = H;
     canvas.height = W;
-    const availH = Math.min(window.innerHeight - 180, 820);
-    const scale  = availH / W;
+    const scoreboardH = document.getElementById('scoreboard').offsetHeight || 44;
+    const controlsH   = document.getElementById('controlPanel').offsetHeight || 88;
+    const reservedH   = scoreboardH + controlsH + 32;
+    const availH      = Math.min(window.innerHeight - reservedH, 820);
+    const scale       = availH / W;
     canvas.style.width  = Math.round(H * scale) + 'px';
     canvas.style.height = Math.round(W * scale) + 'px';
   } else {
-    canvas.width  = W;
-    canvas.height = H;
+    canvas.width        = W;
+    canvas.height       = H;
     canvas.style.width  = '';
     canvas.style.height = '';
   }
-  canvas.style.transform  = '';
-  canvas.style.marginTop  = '';
+  canvas.style.transform    = '';
+  canvas.style.marginTop    = '';
   canvas.style.marginBottom = '';
 }
 function updateAimFromPoint(p) {
@@ -2301,7 +2375,7 @@ ui.btnRotateTable.addEventListener("click", () => {
   if (game.variant !== "drill15") return;
   game.drill15Rotated = !game.drill15Rotated;
   ui.btnRotateTable.textContent = game.drill15Rotated ? "⟳ Tisch zurück" : "⟳ Tisch drehen";
-  applyTableRotation();
+  applyLayout();
 });
 
 // Push-Out ansagen
@@ -2601,7 +2675,7 @@ function newGame() {
   game.lowestAtShotStart = null;
   game.drill15Potted = 0; game.drill15Shots = 0; game.drill15NextBall = 1; game.drill15Rotated = false;
   if (ui.btnRotateTable) ui.btnRotateTable.textContent = "⟳ Tisch drehen";
-  applyTableRotation();
+  applyLayout();
   updatePowerUI(); setAimStatus("Aim: frei");
   drawSpinCanvas(); updateSpinLabel();
   if (game.variant === "8ball") setup8BallRack();
@@ -2611,7 +2685,8 @@ function newGame() {
   updateUI();
 }
 
-window.addEventListener("resize", () => { applyTableRotation(); });
+window.addEventListener("resize", () => { applyLayout(); });
+window.addEventListener("orientationchange", () => { setTimeout(applyLayout, 100); });
 
 function init() {
   newGame(); showMenu();
