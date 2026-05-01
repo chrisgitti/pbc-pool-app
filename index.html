@@ -745,6 +745,14 @@
     </div>
   </div>
 
+  <div class="menu-section" id="rack9Section" style="display:none">
+    <h3>9-Ball Aufstellung</h3>
+    <div class="options" id="optRack9">
+      <div class="opt selected" data-val="diamond">Diamant (WPA)</div>
+      <div class="opt" data-val="triangle">Dreieck</div>
+    </div>
+  </div>
+
   <div class="menu-section" id="modeSection">
     <h3>Spielmodus</h3>
     <div class="options" id="optMode">
@@ -977,6 +985,7 @@ const game = {
   awaitingPushOutDecision: false, pushOutDoneBy: -1,
   lowestAtShotStart: null,
   drill15Potted: 0, drill15Shots: 0, drill15NextBall: 1, drill15Rotated: false,
+  rack9: "diamond",
 };
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -1137,6 +1146,26 @@ function setup9BallRack() {
   }
 }
 
+function setup9BallTriangle() {
+  game.balls = [];
+  const cue = new Ball(0, PLAY_X1 + PLAY_W * 0.25, PLAY_Y1 + PLAY_H * 0.5);
+  game.cueBall = cue; game.balls.push(cue);
+  const apexX = PLAY_X1 + PLAY_W * 0.75;
+  const apexY = PLAY_Y1 + PLAY_H * 0.5;
+  const dx = BALL_R * 2 * Math.cos(Math.PI / 6) + 0.3;
+  const dy = BALL_R * 2 + 0.2;
+  // Dreieck: 4 Reihen 1+2+3+3, 1-Ball an Spitze, 9-Ball in Reihenmitte
+  const rack = [[1],[2,3],[4,9,5],[6,7,8]];
+  for (let row = 0; row < rack.length; row++) {
+    const rowBalls = rack[row];
+    const rowX = apexX + row * dx;
+    const startY = apexY - ((rowBalls.length - 1) * dy) / 2;
+    for (let col = 0; col < rowBalls.length; col++) {
+      game.balls.push(new Ball(rowBalls[col], rowX, startY + col * dy));
+    }
+  }
+}
+
 function setupDrill15() {
   game.balls = [];
   const footX = PLAY_X1 + PLAY_W * 0.75;
@@ -1223,19 +1252,19 @@ function step() {
       const cushVertActive = b.y > PLAY_Y1 + CORNER_CUT && b.y < PLAY_Y2 - CORNER_CUT;
       if (b.x - b.r < PLAY_X1 && cushVertActive && !nearPocket) {
         b.x = PLAY_X1 + b.r;
-        if (b.vx < 0) { b.vx = -b.vx * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "left"); soundCushion(); game.anyCushionAfterFirstHit = true; if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num); }
+        if (b.vx < 0) applyCushionRebound(b, "left");
       }
       if (b.x + b.r > PLAY_X2 && cushVertActive && !nearPocket) {
         b.x = PLAY_X2 - b.r;
-        if (b.vx > 0) { b.vx = -b.vx * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "right"); soundCushion(); game.anyCushionAfterFirstHit = true; if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num); }
+        if (b.vx > 0) applyCushionRebound(b, "right");
       }
       if (b.y - b.r < PLAY_Y1 && cushHorizActive && !inSidePocketMouth) {
         b.y = PLAY_Y1 + b.r;
-        if (b.vy < 0) { b.vy = -b.vy * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "top"); soundCushion(); game.anyCushionAfterFirstHit = true; if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num); }
+        if (b.vy < 0) applyCushionRebound(b, "top");
       }
       if (b.y + b.r > PLAY_Y2 && cushHorizActive && !inSidePocketMouth) {
         b.y = PLAY_Y2 - b.r;
-        if (b.vy > 0) { b.vy = -b.vy * CUSHION_BOUNCE; if (b.isCue) applySpinOnCushion(b, "bottom"); soundCushion(); game.anyCushionAfterFirstHit = true; if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num); }
+        if (b.vy > 0) applyCushionRebound(b, "bottom");
       }
       if (!nearPocket) {
         const refl = (nxIn, nyIn, signedDist) => {
@@ -1319,6 +1348,23 @@ function applySpinOnContact(cue, nx, ny) {
   cue.vx += -dy * sideMag * power * 0.18;
   cue.vy +=  dx * sideMag * power * 0.18;
   sp.used = true;
+}
+
+function applyCushionRebound(b, side) {
+  // Einfalls- = Ausfallswinkel bei mittlerer Stärke;
+  // bei hartem Stoß schrumpft der Ausfallswinkel (Ball läuft an der Bande).
+  const normalIsX = (side === "left" || side === "right");
+  const vN = normalIsX ? b.vx : b.vy;
+  const absN = Math.abs(vN);
+  // Normaler COR sinkt erst ab |vN|>15 (= mittlere Stärke ≈ 50% Power, 45°)
+  const e_n = Math.max(0.65, 0.90 - Math.max(0, (absN - 15) * 0.012));
+  const e_t = 0.90;
+  if (normalIsX) { b.vx = -vN * e_n; b.vy *= e_t; }
+  else           { b.vy = -vN * e_n; b.vx *= e_t; }
+  if (b.isCue) applySpinOnCushion(b, side);
+  soundCushion();
+  game.anyCushionAfterFirstHit = true;
+  if (game.isBreakShot && !b.isCue) game.breakCushionBalls.add(b.num);
 }
 
 function applySpinOnCushion(cue, side) {
@@ -2577,7 +2623,10 @@ bindOptions(ui.optVariant, v => {
   game.variant = v;
   const sec = document.getElementById("modeSection");
   if (sec) sec.style.display = (v === "drill15" || v === "basis") ? "none" : "";
+  const rack9sec = document.getElementById("rack9Section");
+  if (rack9sec) rack9sec.style.display = (v === "9ball") ? "" : "none";
 });
+bindOptions(document.getElementById("optRack9"), v => { game.rack9 = v; });
 bindOptions(ui.optMode, v => { game.mode = v; ui.aiSection.style.display = (v === "ai") ? "" : "none"; });
 bindOptions(ui.optDiff, v => game.difficulty = v);
 bindOptions(ui.optSound, v => game.soundOn = (v === "on"));
@@ -2871,7 +2920,7 @@ function newGame() {
   updatePowerUI(); setAimStatus("Aim: frei");
   drawSpinCanvas(); updateSpinLabel();
   if (game.variant === "8ball") setup8BallRack();
-  else if (game.variant === "9ball") setup9BallRack();
+  else if (game.variant === "9ball") { if (game.rack9 === "triangle") setup9BallTriangle(); else setup9BallRack(); }
   else if (game.variant === "drill15") { game.kitchenOnly = false; game.mode = "solo"; setupDrill15(); }
   else if (game.variant === "basis") { game.kitchenOnly = false; game.mode = "solo"; setupBasis(); }
   ui.endScreen.classList.remove("show");
