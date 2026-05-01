@@ -1875,8 +1875,8 @@ function aiPlanShot() {
     game.called8Pocket = bestShot.pocketIdx >= 0 ? bestShot.pocketIdx : 0;
     game.selecting8Pocket = false;
   }
-  const errMap      = { easy: 0.10, medium: 0.035, hard: 0.008 };
-  const powerVarMap = { easy: 0.25, medium: 0.10,  hard: 0.04  };
+  const errMap      = { easy: 0.10, medium: 0.035, hard: 0.002 };
+  const powerVarMap = { easy: 0.25, medium: 0.10,  hard: 0.015 };
   const err      = errMap[game.difficulty]      ?? 0.035;
   const powerVar = powerVarMap[game.difficulty] ?? 0.10;
   bestShot.angle        += (Math.random() - 0.5) * err * 2;
