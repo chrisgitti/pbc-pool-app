@@ -980,7 +980,7 @@ const game = {
   firstHit: null, ballsPottedThisShot: [], cuePotted: false, anyCushionAfterFirstHit: false,
   ballInHand: false, endMessage: "", open8ball: true, winner: null,
   isBreakShot: true, calledBall: null, kitchenOnly: false,
-  aimAngle: 0, aimLocked: false, powerPercent: 50,
+  aimAngle: 0, aimLocked: false, aimActive: false, powerPercent: 50,
   spinX: 0, spinY: 0,
   spinPending: { x:0, y:0, dirX:0, dirY:0, power:0, used:false },
   placingCue: false, aiThinking: false, aiTimer: 0,
@@ -1399,7 +1399,10 @@ function startShot() {
   if (game.awaitingPushOutDecision) return;
   if (game.selecting8Pocket) return;
   game.kitchenOnly = false;
-  if (typeof needsGroupCall === "function" && needsGroupCall()) { _pendingGroupCallShot = true; maybeShowCallModal(); return; }
+  if (typeof needsGroupCall === "function" && needsGroupCall()) {
+    if (!game.aimActive) { game.foulMessage = "Bitte erst eine Kugel anzielen"; game.foulTimer = 90; return; }
+    _pendingGroupCallShot = true; maybeShowCallModal(); return;
+  }
   // 8-Ball: Tasche für die 8 muss vor dem Stoß angesagt werden
   if (needs8PocketCall()) { game.selecting8Pocket = true; updateUI(); return; }
   const power = (game.powerPercent / 100) * MAX_POWER;
@@ -1429,6 +1432,7 @@ function onShotComplete() {
   if (game.state === "ended") { showEndScreen(); return; }
   if (game.cuePotted) respawnCueBall();
   if (game.mode === "solo") game.currentPlayer = 0;
+  game.aimActive = false;
   game.state = "aiming";
   updateUI();
   if (game.mode === "ai" && game.currentPlayer === 1 && game.state === "aiming") {
@@ -2128,6 +2132,7 @@ function drawBall(b) {
 function drawAimingHelp() {
   if (game.state !== "aiming" || game.shotInProgress) return;
   if (game.placingCue && cueDragging) return;
+  if (!game.aimActive) return;
   const cue = game.cueBall;
   if (!cue.inPlay) return;
   if (game.mode === "ai" && game.currentPlayer === 1) return;
@@ -2368,6 +2373,7 @@ function updateAimFromPoint(p) {
   const cue = game.cueBall;
   if (!cue.inPlay) return;
   game.aimAngle = Math.atan2(p.y - cue.y, p.x - cue.x);
+  if (!game.placingCue) game.aimActive = true;
 }
 function placementBounds() {
   const cue = game.cueBall;
@@ -2706,10 +2712,10 @@ function setAimStatus(text) {
 
 ui.controlPanel.addEventListener("mouseenter", () => { game.aimLocked = true; });
 ui.controlPanel.addEventListener("mouseleave", () => { game.aimLocked = false; });
-ui.btnAimLeft.addEventListener("click", () => { game.aimAngle -= 0.012; });
-ui.btnAimRight.addEventListener("click", () => { game.aimAngle += 0.012; });
-ui.btnAimLeftFine.addEventListener("click", () => { game.aimAngle -= 0.002; });
-ui.btnAimRightFine.addEventListener("click", () => { game.aimAngle += 0.002; });
+ui.btnAimLeft.addEventListener("click", () => { game.aimAngle -= 0.012; game.aimActive = true; });
+ui.btnAimRight.addEventListener("click", () => { game.aimAngle += 0.012; game.aimActive = true; });
+ui.btnAimLeftFine.addEventListener("click", () => { game.aimAngle -= 0.002; game.aimActive = true; });
+ui.btnAimRightFine.addEventListener("click", () => { game.aimAngle += 0.002; game.aimActive = true; });
 
 let powerBarDragging = false;
 function setPowerFromPointer(clientX) {
@@ -3023,7 +3029,7 @@ function newGame() {
   game.basisShots = 0;
   if (ui.btnRotateTable) ui.btnRotateTable.textContent = "⟳ Tisch drehen";
   applyLayout();
-  updatePowerUI(); setAimStatus("Aim: frei");
+  game.aimActive = false; updatePowerUI(); setAimStatus("Aim: frei");
   drawSpinCanvas(); updateSpinLabel();
   if (game.variant === "8ball") setup8BallRack();
   else if (game.variant === "9ball") { if (game.rack9 === "vorgelagert") setup9BallVorgelagert(); else setup9BallRack(); }
