@@ -1655,6 +1655,7 @@ function respawnCueBall() {
   cue.x = cx; cue.y = cy;
   cue.vx = 0; cue.vy = 0;
   game.placingCue = true;
+  game.ballInHand = true;
 }
 
 function handle8BallShot() {
@@ -2536,6 +2537,9 @@ let lmbDragging = false;
 let rmbDragging = false;
 let cueDragging = false;
 let rmbStart = null;
+let cueDragOffsetX = 0, cueDragOffsetY = 0;
+let cueDragStartX = 0, cueDragStartY = 0;
+let cueDragMoved = false;
 const POWER_DRAG_SCALE = 0.55;
 
 function isAutoPortrait() {
@@ -2641,7 +2645,10 @@ function handleCanvasDown(e) {
   if (game.ballInHand && !game.placingCue && e.button === 0) {
     const cue = game.cueBall;
     if (Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 8) {
-      game.placingCue = true; tryPlaceCueBall(p); cueDragging = true; lmbDragging = false;
+      game.placingCue = true;
+      cueDragOffsetX = cue.x - p.x; cueDragOffsetY = cue.y - p.y;
+      cueDragStartX = p.x; cueDragStartY = p.y; cueDragMoved = false;
+      cueDragging = true; lmbDragging = false;
       return;
     }
   }
@@ -2649,9 +2656,11 @@ function handleCanvasDown(e) {
   if (game.placingCue) {
     if (e.button === 0) {
       const cue = game.cueBall;
-      const pickRadius = cue.r * 6;
+      const pickRadius = game.ballInHand ? cue.r * 18 : cue.r * 5;
       if (Math.hypot(p.x - cue.x, p.y - cue.y) < pickRadius) {
-        tryPlaceCueBall(p); cueDragging = true; lmbDragging = false;
+        cueDragOffsetX = cue.x - p.x; cueDragOffsetY = cue.y - p.y;
+        cueDragStartX = p.x; cueDragStartY = p.y; cueDragMoved = false;
+        cueDragging = true; lmbDragging = false;
       } else {
         cueDragging = false; lmbDragging = true;
         updateAimFromPoint(p); setAimStatus("Zielen…");
@@ -2684,8 +2693,9 @@ function handleCanvasMove(e) {
     if (cueDragging) {
       const cue = game.cueBall;
       const b = placementBounds();
-      let nx = clamp(p.x, b.xMin, b.xMax);
-      let ny = clamp(p.y, b.yMin, b.yMax);
+      cueDragMoved = true;
+      let nx = clamp(p.x + cueDragOffsetX, b.xMin, b.xMax);
+      let ny = clamp(p.y + cueDragOffsetY, b.yMin, b.yMax);
       let ok = true;
       for (const ball of game.balls) {
         if (ball === cue || !ball.inPlay) continue;
@@ -2712,7 +2722,10 @@ function handleCanvasMove(e) {
   }
 }
 function handleCanvasUp(e) {
-  if (cueDragging && game.placingCue) game.placingCue = false;
+  if (cueDragging && game.placingCue) {
+    if (!cueDragMoved) tryPlaceCueBall({ x: cueDragStartX, y: cueDragStartY });
+    game.placingCue = false;
+  }
   cueDragging = false;
   if (e.button === 0 && lmbDragging) { lmbDragging = false; setAimStatus("Aim: gesperrt"); }
   else if (e.button === 2 && rmbDragging) {
