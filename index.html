@@ -2009,12 +2009,14 @@ function handleBasisShot() {
     cue.vx = 0; cue.vy = 0; cue.inPlay = true;
     game.cuePotted = false;
   } else {
-    // Weiße nicht eingelocht: dort liegen lassen, aber Ball-in-Hand aktivieren
     if (!game.cuePotted) {
-      game.ballInHand = true;
-      game.placingCue = true;
+      // Ball liegen lassen, aber respawnCueBall() für sauberen State-Reset aufrufen (mobile-kompatibel)
+      const cue = game.cueBall;
+      const sx = cue.x, sy = cue.y;
+      respawnCueBall();        // setzt placingCue, ballInHand, inPlay, vx/vy korrekt
+      cue.x = sx; cue.y = sy; // ursprüngliche Ruheposition beibehalten
     }
-    // Weiße eingelocht: cuePotted bleibt true → respawnCueBall() in onShotComplete setzt sie neu auf
+    // Weiße eingelocht: cuePotted bleibt true → respawnCueBall() wird von onShotComplete aufgerufen
   }
 }
 
