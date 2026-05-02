@@ -304,7 +304,14 @@
     transition: all 0.2s;
     touch-action: manipulation;
   }
-  #bottomControls button:hover { border-color: var(--gold-500); color: var(--gold-500); background: rgba(212, 160, 67, 0.05); }
+  @media (hover: hover) and (pointer: fine) {
+    #bottomControls button:hover { border-color: var(--gold-500); color: var(--gold-500); background: rgba(212, 160, 67, 0.05); }
+  }
+  #btnBasisRepeat.repeat-active {
+    border-color: #d4a043 !important;
+    color: #0a0a0b !important;
+    background: #d4a043 !important;
+  }
 
   #menu {
     position: fixed; inset: 0;
@@ -2933,16 +2940,14 @@ ui.btnRotateTable.addEventListener("click", () => {
   applyLayout();
 });
 
-// Wiederholung (Basisübung) – pointerdown für Mobile, click als Desktop-Fallback mit Deduplizierung
+// Wiederholung (Basisübung) – touchstart für Mobile, pointerdown für Stift/Maus, click als Fallback
 function renderBasisRepeatButton() {
-  ui.btnBasisRepeat.style.borderColor = game.basisRepeatMode ? "#d4a043" : "";
-  ui.btnBasisRepeat.style.color       = game.basisRepeatMode ? "#d4a043" : "";
+  ui.btnBasisRepeat.classList.toggle("repeat-active", game.basisRepeatMode);
+  ui.btnBasisRepeat.textContent = game.basisRepeatMode ? "↺ Wiederholen: AN" : "↺ Wiederholen";
 }
 
-function toggleBasisRepeat(e) {
-  if (e) { e.preventDefault(); e.stopPropagation(); }
-  if (game.variant !== "basis") return;
-  game.basisRepeatMode = !game.basisRepeatMode;
+function setBasisRepeatMode(enabled) {
+  game.basisRepeatMode = !!enabled;
   renderBasisRepeatButton();
   if (!game.basisRepeatMode && game.state === "aiming" && !game.shotInProgress) {
     cueDragging = false; lmbDragging = false; rmbDragging = false; rmbStart = null;
@@ -2952,13 +2957,24 @@ function toggleBasisRepeat(e) {
   updateUI();
 }
 
-let lastBasisRepeatPointer = 0;
+function toggleBasisRepeat(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  if (game.variant !== "basis") return;
+  setBasisRepeatMode(!game.basisRepeatMode);
+}
+
+let lastBasisRepeatTap = 0;
+ui.btnBasisRepeat.addEventListener("touchstart", (e) => {
+  lastBasisRepeatTap = Date.now();
+  toggleBasisRepeat(e);
+}, { passive: false });
 ui.btnBasisRepeat.addEventListener("pointerdown", (e) => {
-  lastBasisRepeatPointer = Date.now();
+  if (e.pointerType === "touch") return;
+  lastBasisRepeatTap = Date.now();
   toggleBasisRepeat(e);
 }, { passive: false });
 ui.btnBasisRepeat.addEventListener("click", (e) => {
-  if (Date.now() - lastBasisRepeatPointer < 500) { e.preventDefault(); return; }
+  if (Date.now() - lastBasisRepeatTap < 500) { e.preventDefault(); return; }
   toggleBasisRepeat(e);
 });
 

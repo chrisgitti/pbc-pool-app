@@ -32,6 +32,8 @@ http.createServer((req, res) => {
     res.writeHead(200, {
       "Content-Type": mime,
       "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "no-store, max-age=0",
+      "Pragma": "no-cache",
     });
     res.end(data);
   });
