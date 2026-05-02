@@ -2929,7 +2929,16 @@ ui.endRestart.addEventListener("click", () => {
   }
   newGame();
 });
-ui.endMenu.addEventListener("click", () => { ui.endScreen.classList.remove("show"); showMenu(); });
+ui.endMenu.addEventListener("click", () => {
+  ui.endScreen.classList.remove("show");
+  if (game.mode === "online" && online.ws) {
+    online.connected = false;
+    online.ws.onclose = null;
+    online.ws.close();
+    online.ws = null;
+  }
+  showMenu();
+});
 
 function showMenu() {
   ui.menu.classList.remove("hidden");
@@ -3316,7 +3325,7 @@ function handleRelayMessage(msg) {
       }
       break;
     case "rematch":
-      if (game.mode === "online") {
+      if (game.mode === "online" && online.connected) {
         ui.endScreen.classList.remove("show");
         newGame();
         updateUI();
