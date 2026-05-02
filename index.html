@@ -1515,6 +1515,7 @@ function startShot() {
   game.cuePotted = false;
   game.anyCushionAfterFirstHit = false;
   game.lowestAtShotStart = (game.variant === "9ball") ? lowestBallOnTable() : null;
+  game.foulMessage = ""; game.foulTimer = 0;
   game.spinPending = { x: game.spinX, y: game.spinY, dirX, dirY, power, used: false };
   const cue = game.cueBall;
   cue.vx = dirX * power; cue.vy = dirY * power;
