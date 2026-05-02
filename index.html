@@ -965,6 +965,7 @@
     <button id="btnSound" title="Sound umschalten">♪ Sound</button>
     <button id="btnPushOut" style="display:none; border-color: #4cc9f0; color: #4cc9f0;">Push-Out ansagen</button>
     <button id="btnRotateTable" style="display:none; border-color: #4cc9f0; color: #4cc9f0;">⟳ Tisch drehen</button>
+    <button id="btnBasisRepeat" style="display:none;">↺ Wiederholen</button>
   </div>
 </div>
 
@@ -1088,6 +1089,7 @@ const game = {
   awaitingPushOutDecision: false, pushOutDoneBy: -1,
   lowestAtShotStart: null,
   drill15Potted: 0, drill15Shots: 0, drill15NextBall: 1, drill15Rotated: false,
+  basisRepeatMode: false, basisCueSaveX: 0, basisCueSaveY: 0,
   rack9: "diamond",
 };
 
@@ -1507,6 +1509,7 @@ function startShot() {
   }
   // 8-Ball: Tasche für die 8 muss vor dem Stoß angesagt werden
   if (needs8PocketCall()) { game.selecting8Pocket = true; updateUI(); return; }
+  if (game.variant === "basis") { game.basisCueSaveX = game.cueBall.x; game.basisCueSaveY = game.cueBall.y; }
   const power = (game.powerPercent / 100) * MAX_POWER;
   const angle = game.aimAngle;
   const dirX = Math.cos(angle), dirY = Math.sin(angle);
@@ -1920,8 +1923,16 @@ function setupBasis() {
 
 function handleBasisShot() {
   game.basisShots++;
-  // Nach jedem Stoß immer Ball-in-Hand – Weiße darf frei neu platziert werden
-  game.cuePotted = true;  // löst respawnCueBall() in onShotComplete aus
+  if (game.basisRepeatMode) {
+    // Weiße an gespeicherte Position zurücksetzen – kein Ball-in-Hand nötig
+    const cue = game.cueBall;
+    cue.x = game.basisCueSaveX; cue.y = game.basisCueSaveY;
+    cue.vx = 0; cue.vy = 0; cue.inPlay = true;
+    game.cuePotted = false;
+  } else {
+    // Normal: Ball-in-Hand nach jedem Stoß
+    game.cuePotted = true;
+  }
 }
 
 function aiPlanShot() {
@@ -2763,6 +2774,7 @@ const ui = {
   btnPushOutReject: document.getElementById("btnPushOutReject"),
   btnPushOut: document.getElementById("btnPushOut"),
   btnRotateTable: document.getElementById("btnRotateTable"),
+  btnBasisRepeat: document.getElementById("btnBasisRepeat"),
 };
 
 let _pendingGroupCallShot = false;
@@ -2811,6 +2823,14 @@ ui.btnRotateTable.addEventListener("click", () => {
   game.drill15Rotated = !game.drill15Rotated;
   ui.btnRotateTable.textContent = game.drill15Rotated ? "⟳ Tisch zurück" : "⟳ Tisch drehen";
   applyLayout();
+});
+
+// Wiederholung (Basisübung)
+ui.btnBasisRepeat.addEventListener("click", () => {
+  if (game.variant !== "basis") return;
+  game.basisRepeatMode = !game.basisRepeatMode;
+  ui.btnBasisRepeat.style.borderColor = game.basisRepeatMode ? "#d4a043" : "";
+  ui.btnBasisRepeat.style.color      = game.basisRepeatMode ? "#d4a043" : "";
 });
 
 // Push-Out ansagen
@@ -3119,6 +3139,7 @@ function updateUI() {
   // (auf Handy im Hochformat dreht applyLayout() den Tisch bereits automatisch)
   ui.btnRotateTable.style.display =
     ((game.variant === "drill15" || game.variant === "basis") && !isAutoPortrait()) ? "" : "none";
+  ui.btnBasisRepeat.style.display = (game.variant === "basis") ? "" : "none";
   maybeShowCallModal();
   ui.foulLine.textContent = game.foulMessage || "";
   ui.p1Info.textContent = playerInfoText(game.players[0]);
@@ -3190,6 +3211,8 @@ function newGame() {
   game.lowestAtShotStart = null;
   game.drill15Potted = 0; game.drill15Shots = 0; game.drill15NextBall = 1; game.drill15Rotated = false;
   game.basisShots = 0;
+  game.basisRepeatMode = false; game.basisCueSaveX = 0; game.basisCueSaveY = 0;
+  ui.btnBasisRepeat.style.borderColor = ""; ui.btnBasisRepeat.style.color = "";
   if (ui.btnRotateTable) ui.btnRotateTable.textContent = "⟳ Tisch drehen";
   applyLayout();
   game.aimActive = false; updatePowerUI(); setAimStatus("Aim: frei");
