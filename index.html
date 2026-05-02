@@ -692,6 +692,7 @@
     .panel-title { font-size: 9px; }
   }
   #spinCanvas { touch-action: none; }
+  #gameCanvas  { touch-action: none; }
 
   /* ── Portrait-Modus (Phone hochkant, JS setzt body.portrait-mode) ── */
   body.portrait-mode #app {
@@ -2779,6 +2780,7 @@ canvas.addEventListener("touchstart", (e) => {
   _lastTapTime = _now;
   const t = e.touches[0];
   _lastTouchTimestamp = Date.now();
+  game.aimLocked = false;
   handleCanvasDown({ clientX: t.clientX, clientY: t.clientY, button: 0, preventDefault: ()=>{} });
 }, { passive: false });
 canvas.addEventListener("touchmove", (e) => {
@@ -2930,18 +2932,19 @@ ui.btnRotateTable.addEventListener("click", () => {
   applyLayout();
 });
 
-// Wiederholung (Basisübung)
-ui.btnBasisRepeat.addEventListener("click", () => {
+// Wiederholung (Basisübung) – pointerup statt click (kein 300ms-Delay, kein Doppel-Event auf Mobile)
+function toggleBasisRepeat() {
   if (game.variant !== "basis") return;
   game.basisRepeatMode = !game.basisRepeatMode;
   ui.btnBasisRepeat.style.borderColor = game.basisRepeatMode ? "#d4a043" : "";
   ui.btnBasisRepeat.style.color      = game.basisRepeatMode ? "#d4a043" : "";
-  // Beim Abwählen sofort Ball-in-Hand aktivieren (wie nach normalem Stoß)
   if (!game.basisRepeatMode && game.state === "aiming" && !game.shotInProgress) {
+    game.aimLocked = false;
     respawnCueBall();
     updateUI();
   }
-});
+}
+ui.btnBasisRepeat.addEventListener("pointerup", toggleBasisRepeat);
 
 // Push-Out ansagen
 ui.btnPushOut.addEventListener("click", () => {
