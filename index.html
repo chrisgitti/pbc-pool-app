@@ -3250,7 +3250,8 @@ function showLobbyError(text) {
 }
 
 function connectRelay(onOpen, _retries) {
-  const retries = _retries ?? 5;
+  const MAX = 8;
+  const retries = _retries ?? MAX;
   if (online.ws) { try { online.ws.close(); } catch(_){} }
   online.ws = new WebSocket(RELAY_URL);
   online.ws.onopen = onOpen;
@@ -3259,13 +3260,13 @@ function connectRelay(onOpen, _retries) {
   };
   online.ws.onerror = () => {
     if (retries > 0) {
-      const left = retries - 1;
-      showLobbyError(`Server startet… bitte warten (${5 - left}/5)`);
+      const attempt = MAX - retries + 1;
+      showLobbyError(`Server startet… bitte warten (${attempt}/${MAX})`);
       setTimeout(() => {
-        if (uiOnline.lobby.style.display !== "none") connectRelay(onOpen, left);
-      }, 4000);
+        if (uiOnline.lobby.style.display !== "none") connectRelay(onOpen, retries - 1);
+      }, 5000);
     } else {
-      showLobbyError("Verbindungsfehler – Server nicht erreichbar.");
+      showLobbyError("Verbindungsfehler – Server nicht erreichbar. Bitte Seite neu laden.");
     }
   };
   online.ws.onclose = () => {
