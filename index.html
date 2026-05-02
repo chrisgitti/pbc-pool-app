@@ -1467,7 +1467,7 @@ function applyCushionRebound(b, side) {
   const vN = normalIsX ? b.vx : b.vy;
   const absN = Math.abs(vN);
   const e_n = Math.min(0.97, Math.max(0.62, 0.90 + (absN - 15) * 0.015));
-  const e_t = 0.90;
+  const e_t = Math.max(0.72, 0.90 - Math.max(0, (absN - 15) * 0.013));
   if (normalIsX) { b.vx = -vN * e_n; b.vy *= e_t; }
   else           { b.vy = -vN * e_n; b.vx *= e_t; }
   if (b.isCue) applySpinOnCushion(b, side);
