@@ -2898,9 +2898,9 @@ ui.btnPushOutReject.addEventListener("click", () => {
   updateUI();
 });
 
-// Tisch drehen (Drill 15)
+// Tisch drehen (Drill 15 + Basisübung)
 ui.btnRotateTable.addEventListener("click", () => {
-  if (game.variant !== "drill15") return;
+  if (game.variant !== "drill15" && game.variant !== "basis") return;
   game.drill15Rotated = !game.drill15Rotated;
   ui.btnRotateTable.textContent = game.drill15Rotated ? "⟳ Tisch zurück" : "⟳ Tisch drehen";
   applyLayout();
