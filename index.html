@@ -2912,6 +2912,11 @@ ui.btnBasisRepeat.addEventListener("click", () => {
   game.basisRepeatMode = !game.basisRepeatMode;
   ui.btnBasisRepeat.style.borderColor = game.basisRepeatMode ? "#d4a043" : "";
   ui.btnBasisRepeat.style.color      = game.basisRepeatMode ? "#d4a043" : "";
+  // Beim Abwählen sofort Ball-in-Hand aktivieren (wie nach normalem Stoß)
+  if (!game.basisRepeatMode && game.state === "aiming" && !game.shotInProgress) {
+    respawnCueBall();
+    updateUI();
+  }
 });
 
 // Push-Out ansagen
