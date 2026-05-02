@@ -2540,6 +2540,8 @@ let rmbStart = null;
 let cueDragOffsetX = 0, cueDragOffsetY = 0;
 let cueDragStartX = 0, cueDragStartY = 0;
 let cueDragMoved = false;
+let _lastTouchTimestamp = 0;
+let _cueDragStartTime = 0;
 const POWER_DRAG_SCALE = 0.55;
 
 function isAutoPortrait() {
@@ -2644,10 +2646,11 @@ function handleCanvasDown(e) {
   // BallInHand re-entry: after aim mode, clicking near cue ball re-enters placement
   if (game.ballInHand && !game.placingCue && e.button === 0) {
     const cue = game.cueBall;
-    if (Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 8) {
+    if (Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 18) {
       game.placingCue = true;
       cueDragOffsetX = cue.x - p.x; cueDragOffsetY = cue.y - p.y;
       cueDragStartX = p.x; cueDragStartY = p.y; cueDragMoved = false;
+      _cueDragStartTime = Date.now();
       cueDragging = true; lmbDragging = false;
       return;
     }
@@ -2660,6 +2663,7 @@ function handleCanvasDown(e) {
       if (Math.hypot(p.x - cue.x, p.y - cue.y) < pickRadius) {
         cueDragOffsetX = cue.x - p.x; cueDragOffsetY = cue.y - p.y;
         cueDragStartX = p.x; cueDragStartY = p.y; cueDragMoved = false;
+        _cueDragStartTime = Date.now();
         cueDragging = true; lmbDragging = false;
       } else {
         cueDragging = false; lmbDragging = true;
@@ -2723,8 +2727,9 @@ function handleCanvasMove(e) {
 }
 function handleCanvasUp(e) {
   if (cueDragging && game.placingCue) {
-    if (!cueDragMoved) tryPlaceCueBall({ x: cueDragStartX, y: cueDragStartY });
-    game.placingCue = false;
+    const heldLong = game.ballInHand && (Date.now() - _cueDragStartTime) >= 150;
+    if (!cueDragMoved && !heldLong) tryPlaceCueBall({ x: cueDragStartX, y: cueDragStartY });
+    if (cueDragMoved || !game.ballInHand) game.placingCue = false;
   }
   cueDragging = false;
   if (e.button === 0 && lmbDragging) { lmbDragging = false; setAimStatus("Aim: gesperrt"); }
@@ -2736,9 +2741,9 @@ function handleCanvasUp(e) {
   }
 }
 
-canvas.addEventListener("mousedown", handleCanvasDown);
+canvas.addEventListener("mousedown", (e) => { if (Date.now() - _lastTouchTimestamp < 500) return; handleCanvasDown(e); });
 canvas.addEventListener("mousemove", handleCanvasMove);
-canvas.addEventListener("mouseup", handleCanvasUp);
+canvas.addEventListener("mouseup", (e) => { if (Date.now() - _lastTouchTimestamp < 500) return; handleCanvasUp(e); });
 canvas.addEventListener("mouseleave", () => {
   if (rmbDragging) { rmbDragging = false; game.powerPercent = 0; updatePowerUI(); rmbStart = null; }
 });
@@ -2767,6 +2772,7 @@ canvas.addEventListener("touchstart", (e) => {
   if (_now - _lastTapTime < 300) resetCanvasZoom();
   _lastTapTime = _now;
   const t = e.touches[0];
+  _lastTouchTimestamp = Date.now();
   handleCanvasDown({ clientX: t.clientX, clientY: t.clientY, button: 0, preventDefault: ()=>{} });
 }, { passive: false });
 canvas.addEventListener("touchmove", (e) => {
