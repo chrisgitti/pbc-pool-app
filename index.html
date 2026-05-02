@@ -1460,13 +1460,13 @@ function applySpinOnContact(cue, nx, ny) {
 }
 
 function applyCushionRebound(b, side) {
-  // Einfalls- = Ausfallswinkel bei mittlerer Stärke;
-  // bei hartem Stoß schrumpft der Ausfallswinkel (Ball läuft an der Bande).
+  // Bei mittlerer Staerke (|vN|~15): Einfalls- = Ausfallswinkel (e_n = e_t = 0.90).
+  // Weicher Stoss -> e_n sinkt -> Ausfallwinkel waechst (flacherer Abprall).
+  // Harter Stoss  -> e_n steigt -> Ausfallwinkel sinkt (spitzerer Abprall).
   const normalIsX = (side === "left" || side === "right");
   const vN = normalIsX ? b.vx : b.vy;
   const absN = Math.abs(vN);
-  // Normaler COR sinkt erst ab |vN|>15 (= mittlere Stärke ≈ 50% Power, 45°)
-  const e_n = Math.max(0.65, 0.90 - Math.max(0, (absN - 15) * 0.012));
+  const e_n = Math.min(0.97, Math.max(0.62, 0.90 + (absN - 15) * 0.015));
   const e_t = 0.90;
   if (normalIsX) { b.vx = -vN * e_n; b.vy *= e_t; }
   else           { b.vy = -vN * e_n; b.vx *= e_t; }
