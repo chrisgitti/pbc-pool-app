@@ -2696,7 +2696,6 @@ function handleCanvasDown(e) {
   }
 }
 function handleCanvasMove(e) {
-  if (game.aimLocked) return;
   if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
   const p = mousePos(e);
   if (game.placingCue) {
@@ -2721,6 +2720,7 @@ function handleCanvasMove(e) {
     }
     return;
   }
+  if (game.aimLocked) return;
   if (game.shotInProgress) return;
   if (game.mode === "ai" && game.currentPlayer === 1) return;
   if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
