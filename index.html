@@ -3249,15 +3249,25 @@ function showLobbyError(text) {
   uiOnline.error.style.display = "";
 }
 
-function connectRelay(onOpen) {
-  if (online.ws) { online.ws.close(); }
+function connectRelay(onOpen, _retries) {
+  const retries = _retries ?? 5;
+  if (online.ws) { try { online.ws.close(); } catch(_){} }
   online.ws = new WebSocket(RELAY_URL);
   online.ws.onopen = onOpen;
   online.ws.onmessage = e => {
-    console.log("[online] empfangen:", e.data);
-    try { handleRelayMessage(JSON.parse(e.data)); } catch(err) { console.error("[online] Fehler:", err); }
+    try { handleRelayMessage(JSON.parse(e.data)); } catch(err) {}
   };
-  online.ws.onerror = () => showLobbyError("Verbindungsfehler – Server nicht erreichbar.");
+  online.ws.onerror = () => {
+    if (retries > 0) {
+      const left = retries - 1;
+      showLobbyError(`Server startet… bitte warten (${5 - left}/5)`);
+      setTimeout(() => {
+        if (uiOnline.lobby.style.display !== "none") connectRelay(onOpen, left);
+      }, 4000);
+    } else {
+      showLobbyError("Verbindungsfehler – Server nicht erreichbar.");
+    }
+  };
   online.ws.onclose = () => {
     if (game.mode === "online" && online.connected) {
       online.connected = false;
