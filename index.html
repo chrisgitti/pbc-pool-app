@@ -1091,8 +1091,9 @@ const game = {
   rack9: "diamond",
 };
 
-const online = { ws: null, role: null, myPlayer: 0, connected: false, waitingForSync: false, pendingSync: null };
+const online = { ws: null, role: null, myPlayer: 0, connected: false, waitingForSync: false };
 const _onlineShotQueue = [];
+const _pendingSyncs = [];
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
@@ -1529,9 +1530,8 @@ function onShotComplete() {
   // Online: fremder Schuss → nur Animation, keine eigene Spiellogik → sync anwenden
   if (game.mode === "online" && online.waitingForSync) {
     online.waitingForSync = false;
-    if (online.pendingSync) {
-      const s = online.pendingSync; online.pendingSync = null;
-      applyOnlineSync(s);
+    if (_pendingSyncs.length > 0) {
+      applyOnlineSync(_pendingSyncs.shift());
     } else {
       game.aimActive = false;
       game.state = "aiming";
@@ -1678,6 +1678,12 @@ function handle8BallShot() {
         if (n === 0 || n === 8) continue;
         if (isMyGroupBall(n, me)) me.potted.push(n);
         else if (isMyGroupBall(n, other)) other.potted.push(n);
+      }
+      // Backfill balls potted before group assignment (break + open-table shots)
+      for (const b of game.balls) {
+        if (b.inPlay || b.isCue || b.num === 8) continue;
+        if (isMyGroupBall(b.num, me) && !me.potted.includes(b.num)) me.potted.push(b.num);
+        if (isMyGroupBall(b.num, other) && !other.potted.includes(b.num)) other.potted.push(b.num);
       }
       return; // player continues their turn
     }
@@ -3290,8 +3296,8 @@ function handleRelayMessage(msg) {
       break;
     case "sync":
       if (game.mode === "online") {
-        if (online.waitingForSync) {
-          online.pendingSync = msg; // Physik läuft noch – puffern
+        if (online.waitingForSync || _pendingSyncs.length > 0) {
+          _pendingSyncs.push(msg);
         } else {
           applyOnlineSync(msg);
         }
