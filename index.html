@@ -2535,7 +2535,6 @@ function loop() {
 let lmbDragging = false;
 let rmbDragging = false;
 let cueDragging = false;
-let cueDragOffsetX = 0, cueDragOffsetY = 0;
 let rmbStart = null;
 const POWER_DRAG_SCALE = 0.55;
 
@@ -2642,9 +2641,7 @@ function handleCanvasDown(e) {
   if (game.ballInHand && !game.placingCue && e.button === 0) {
     const cue = game.cueBall;
     if (Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 8) {
-      game.placingCue = true;
-      cueDragOffsetX = cue.x - p.x; cueDragOffsetY = cue.y - p.y;
-      cueDragging = true; lmbDragging = false;
+      game.placingCue = true; tryPlaceCueBall(p); cueDragging = true; lmbDragging = false;
       return;
     }
   }
@@ -2652,11 +2649,9 @@ function handleCanvasDown(e) {
   if (game.placingCue) {
     if (e.button === 0) {
       const cue = game.cueBall;
-      // Larger touch radius on mobile (ballInHand) so dragging starts reliably
-      const pickRadius = game.ballInHand ? cue.r * 18 : cue.r * 5;
+      const pickRadius = cue.r * 6;
       if (Math.hypot(p.x - cue.x, p.y - cue.y) < pickRadius) {
-        cueDragOffsetX = cue.x - p.x; cueDragOffsetY = cue.y - p.y;
-        cueDragging = true; lmbDragging = false;
+        tryPlaceCueBall(p); cueDragging = true; lmbDragging = false;
       } else {
         cueDragging = false; lmbDragging = true;
         updateAimFromPoint(p); setAimStatus("Zielen…");
@@ -2689,8 +2684,8 @@ function handleCanvasMove(e) {
     if (cueDragging) {
       const cue = game.cueBall;
       const b = placementBounds();
-      let nx = clamp(p.x + cueDragOffsetX, b.xMin, b.xMax);
-      let ny = clamp(p.y + cueDragOffsetY, b.yMin, b.yMax);
+      let nx = clamp(p.x, b.xMin, b.xMax);
+      let ny = clamp(p.y, b.yMin, b.yMax);
       let ok = true;
       for (const ball of game.balls) {
         if (ball === cue || !ball.inPlay) continue;
