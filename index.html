@@ -1544,7 +1544,7 @@ function onShotComplete() {
   else if (game.variant === "drill15") handleDrill15Shot();
   else if (game.variant === "basis") handleBasisShot();
   else handleSoloShot();
-  if (game.state === "ended") { showEndScreen(); return; }
+  if (game.state === "ended") { if (game.mode === "online") sendOnlineSync(); showEndScreen(); return; }
   if (game.cuePotted) respawnCueBall();
   if (game.mode === "solo") game.currentPlayer = 0;
   game.aimActive = false;
