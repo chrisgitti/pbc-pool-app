@@ -302,6 +302,7 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
+    touch-action: manipulation;
   }
   #bottomControls button:hover { border-color: var(--gold-500); color: var(--gold-500); background: rgba(212, 160, 67, 0.05); }
 
@@ -2932,19 +2933,34 @@ ui.btnRotateTable.addEventListener("click", () => {
   applyLayout();
 });
 
-// Wiederholung (Basisübung) – pointerup statt click (kein 300ms-Delay, kein Doppel-Event auf Mobile)
-function toggleBasisRepeat() {
+// Wiederholung (Basisübung) – pointerdown für Mobile, click als Desktop-Fallback mit Deduplizierung
+function renderBasisRepeatButton() {
+  ui.btnBasisRepeat.style.borderColor = game.basisRepeatMode ? "#d4a043" : "";
+  ui.btnBasisRepeat.style.color       = game.basisRepeatMode ? "#d4a043" : "";
+}
+
+function toggleBasisRepeat(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
   if (game.variant !== "basis") return;
   game.basisRepeatMode = !game.basisRepeatMode;
-  ui.btnBasisRepeat.style.borderColor = game.basisRepeatMode ? "#d4a043" : "";
-  ui.btnBasisRepeat.style.color      = game.basisRepeatMode ? "#d4a043" : "";
+  renderBasisRepeatButton();
   if (!game.basisRepeatMode && game.state === "aiming" && !game.shotInProgress) {
-    game.aimLocked = false;
+    cueDragging = false; lmbDragging = false; rmbDragging = false; rmbStart = null;
+    game.aimLocked = false; game.aimActive = false;
     respawnCueBall();
-    updateUI();
   }
+  updateUI();
 }
-ui.btnBasisRepeat.addEventListener("pointerup", toggleBasisRepeat);
+
+let lastBasisRepeatPointer = 0;
+ui.btnBasisRepeat.addEventListener("pointerdown", (e) => {
+  lastBasisRepeatPointer = Date.now();
+  toggleBasisRepeat(e);
+}, { passive: false });
+ui.btnBasisRepeat.addEventListener("click", (e) => {
+  if (Date.now() - lastBasisRepeatPointer < 500) { e.preventDefault(); return; }
+  toggleBasisRepeat(e);
+});
 
 // Push-Out ansagen
 ui.btnPushOut.addEventListener("click", () => {
@@ -3336,7 +3352,7 @@ function newGame() {
   game.drill15Potted = 0; game.drill15Shots = 0; game.drill15NextBall = 1; game.drill15Rotated = false;
   game.basisShots = 0;
   game.basisRepeatMode = false; game.basisCueSaveX = 0; game.basisCueSaveY = 0;
-  ui.btnBasisRepeat.style.borderColor = ""; ui.btnBasisRepeat.style.color = "";
+  renderBasisRepeatButton();
   if (ui.btnRotateTable) ui.btnRotateTable.textContent = "⟳ Tisch drehen";
   applyLayout();
   game.aimActive = false; updatePowerUI(); setAimStatus("Aim: frei");
