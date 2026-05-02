@@ -606,6 +606,69 @@
   }
   #endScreen button.primary:hover { background: var(--gold-400); color: var(--charcoal-950); }
 
+  #onlineLobby {
+    position: fixed; inset: 0; display: none;
+    background: rgba(10,10,11,0.92); z-index: 300;
+    flex-direction: column; align-items: center; justify-content: center;
+    backdrop-filter: blur(10px);
+  }
+  #onlineLobby .card {
+    background: linear-gradient(180deg, rgba(20,20,24,0.95), rgba(10,10,11,0.95));
+    border: 1px solid var(--border-gold); border-radius: 4px;
+    padding: 32px 40px; max-width: 90vw; width: 360px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  #onlineLobby h2 {
+    margin: 0 0 4px; font-family: "Bebas Neue", system-ui, sans-serif;
+    font-size: 36px; letter-spacing: 0.06em;
+    color: var(--gold-500); text-transform: uppercase; text-align: center;
+  }
+  #onlineLobby input[type=text] {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 3px; padding: 10px 12px; color: #fff; font-size: 15px;
+    width: 100%; box-sizing: border-box; outline: none;
+  }
+  #onlineLobby input[type=text]:focus { border-color: var(--gold-500); }
+  #onlineLobby button {
+    background: rgba(255,255,255,0.02); color: #fff;
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 3px;
+    padding: 10px 16px; font-size: 13px; font-weight: 600;
+    letter-spacing: 0.08em; cursor: pointer; transition: all 0.2s; width: 100%;
+  }
+  #onlineLobby button:hover { border-color: var(--gold-500); color: var(--gold-500); }
+  #onlineLobby button.primary { background: var(--gold-500); color: var(--charcoal-950); border-color: var(--gold-500); }
+  #onlineLobby button.primary:hover { background: var(--gold-400); color: var(--charcoal-950); }
+  .lobby-buttons { display: flex; gap: 8px; }
+  .lobby-buttons button { flex: 1; }
+  #roomCodeDisplay {
+    font-family: "Bebas Neue", monospace; font-size: 52px;
+    color: var(--gold-500); text-align: center; letter-spacing: 0.2em;
+  }
+  #lobbyWaiting p { color: rgba(255,255,255,0.7); text-align: center; font-size: 13px; margin: 2px 0; }
+  #lobbyError { color: #e74c3c; font-size: 13px; text-align: center; }
+  #onlineDisconnect {
+    position: fixed; inset: 0; display: none;
+    background: rgba(10,10,11,0.92); z-index: 400;
+    align-items: center; justify-content: center; backdrop-filter: blur(10px);
+  }
+  #onlineDisconnect .card {
+    background: linear-gradient(180deg, rgba(20,20,24,0.95), rgba(10,10,11,0.95));
+    border: 1px solid var(--border-gold); border-radius: 4px; padding: 32px 40px;
+    max-width: 90vw; width: 360px; box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    display: flex; flex-direction: column; gap: 12px; align-items: center;
+  }
+  #onlineDisconnect h2 {
+    margin: 0; font-family: "Bebas Neue", sans-serif; font-size: 32px; color: var(--gold-500);
+  }
+  #onlineDisconnect p { color: rgba(255,255,255,0.7); text-align: center; }
+  #onlineDisconnect button {
+    background: rgba(255,255,255,0.02); color: #fff; border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 3px; padding: 10px 16px; font-size: 13px; font-weight: 600;
+    cursor: pointer; width: 100%; transition: all 0.2s;
+  }
+  #onlineDisconnect button:hover { border-color: var(--gold-500); color: var(--gold-500); }
+
   @media (max-width: 820px) {
     #playArea { grid-template-columns: 1fr; }
     #controlPanel { flex-direction: row; flex-wrap: wrap; }
@@ -764,6 +827,7 @@
       <div class="opt selected" data-val="hotseat">Hot-Seat (2 Spieler)</div>
       <div class="opt" data-val="ai">Gegen KI</div>
       <div class="opt" data-val="solo">Solo / Übung</div>
+      <div class="opt" data-val="online">🌐 Online-Spiel</div>
     </div>
   </div>
 
@@ -924,6 +988,39 @@
   </div>
 </div>
 
+<div id="onlineLobby">
+  <div class="card">
+    <h2>🌐 Online</h2>
+    <div id="lobbySetup">
+      <input type="text" id="onlineName" placeholder="Dein Name" maxlength="20" autocomplete="off">
+      <div class="lobby-buttons">
+        <button id="btnCreateRoom" class="primary">Raum erstellen</button>
+        <button id="btnJoinRoom">Beitreten</button>
+      </div>
+      <div id="joinCodeRow" style="display:none;">
+        <input type="text" id="joinCodeInput" placeholder="Code (z.B. A3KF2M)" maxlength="6" autocomplete="off" style="text-transform:uppercase;margin-top:8px;">
+        <button id="btnJoinConfirm" class="primary" style="margin-top:6px;">OK → Verbinden</button>
+      </div>
+    </div>
+    <div id="lobbyWaiting" style="display:none;">
+      <p>Dein Raum-Code:</p>
+      <div id="roomCodeDisplay">------</div>
+      <p>Teile diesen Code mit deinem Gegner.</p>
+      <p style="font-size:11px;color:rgba(255,255,255,0.4);">Warte auf Verbindung…</p>
+    </div>
+    <p id="lobbyError" style="display:none;"></p>
+    <button id="btnLobbyBack" style="margin-top:4px;">← Zurück zum Menü</button>
+  </div>
+</div>
+
+<div id="onlineDisconnect">
+  <div class="card">
+    <h2>Verbindung getrennt</h2>
+    <p>Dein Gegner hat das Spiel verlassen.</p>
+    <button id="btnDisconnectBack">← Zurück zum Menü</button>
+  </div>
+</div>
+
 <script>
 "use strict";
 /* PBC Erding – POOL BILLARD (8-Ball & 9-Ball)
@@ -993,6 +1090,9 @@ const game = {
   drill15Potted: 0, drill15Shots: 0, drill15NextBall: 1, drill15Rotated: false,
   rack9: "diamond",
 };
+
+const online = { ws: null, role: null, myPlayer: 0, connected: false, waitingForSync: false, pendingSync: null };
+const _onlineShotQueue = [];
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
@@ -1420,11 +1520,25 @@ function startShot() {
   game.shotInProgress = true; game.state = "moving";
   resetCanvasZoom();
   soundCueHit(power);
+  if (game.mode === "online") sendOnlineShot();
   game.spinX = 0; game.spinY = 0;
   drawSpinCanvas(); updateSpinLabel();
 }
 
 function onShotComplete() {
+  // Online: fremder Schuss → nur Animation, keine eigene Spiellogik → sync anwenden
+  if (game.mode === "online" && online.waitingForSync) {
+    online.waitingForSync = false;
+    if (online.pendingSync) {
+      const s = online.pendingSync; online.pendingSync = null;
+      applyOnlineSync(s);
+    } else {
+      game.aimActive = false;
+      game.state = "aiming";
+      updateUI();
+    }
+    return;
+  }
   if (game.variant === "8ball") handle8BallShot();
   else if (game.variant === "9ball") handle9BallShot();
   else if (game.variant === "drill15") handleDrill15Shot();
@@ -1435,6 +1549,7 @@ function onShotComplete() {
   if (game.mode === "solo") game.currentPlayer = 0;
   game.aimActive = false;
   game.state = "aiming";
+  if (game.mode === "online") sendOnlineSync();
   updateUI();
   if (game.mode === "ai" && game.currentPlayer === 1 && game.state === "aiming") {
     game.aiThinking = true; game.aiTimer = 60;
@@ -2138,6 +2253,7 @@ function drawAimingHelp() {
   const cue = game.cueBall;
   if (!cue.inPlay) return;
   if (game.mode === "ai" && game.currentPlayer === 1) return;
+  if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
   const angle = game.aimAngle;
   const dx = Math.cos(angle), dy = Math.sin(angle);
   const maxLen = 800;
@@ -2303,6 +2419,7 @@ function updateSpinLabel() {
 
 function loop() {
   if (game.shotInProgress) step();
+  if (game.mode === "online" && !game.shotInProgress) tryDequeueOnlineShot();
   if (game.aiThinking) {
     game.aiTimer--;
     if (game.aiTimer <= 0) { game.aiThinking = false; aiPlanShot(); }
@@ -2421,6 +2538,9 @@ function handleCanvasDown(e) {
   }
   if (game.selecting8Pocket) return;
 
+  // Online: block ALL interaction when it's the opponent's turn
+  if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
+
   // BallInHand re-entry: after aim mode, clicking near cue ball re-enters placement
   if (game.ballInHand && !game.placingCue && e.button === 0) {
     const cue = game.cueBall;
@@ -2450,6 +2570,7 @@ function handleCanvasDown(e) {
   }
   if (game.shotInProgress) return;
   if (game.mode === "ai" && game.currentPlayer === 1) return;
+  if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
   if (e.button === 0) {
     lmbDragging = true; rmbDragging = false; rmbStart = null;
     updateAimFromPoint(p);
@@ -2462,6 +2583,7 @@ function handleCanvasDown(e) {
 }
 function handleCanvasMove(e) {
   if (game.aimLocked) return;
+  if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
   const p = mousePos(e);
   if (game.placingCue) {
     if (cueDragging) {
@@ -2486,6 +2608,7 @@ function handleCanvasMove(e) {
   }
   if (game.shotInProgress) return;
   if (game.mode === "ai" && game.currentPlayer === 1) return;
+  if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
   if (lmbDragging) updateAimFromPoint(p);
   else if (rmbDragging && rmbStart) {
     const d = Math.hypot(p.x - rmbStart.x, p.y - rmbStart.y);
@@ -2574,7 +2697,7 @@ canvas.addEventListener("touchend", (e) => {
   handleCanvasUp({ button: 0 });
 }, { passive: false });
 window.addEventListener("keydown", (e) => {
-  if (e.code === "Space") { e.preventDefault(); startShot(); }
+  if (e.code === "Space") { e.preventDefault(); if (game.mode === "online" && game.currentPlayer !== online.myPlayer) {} else startShot(); }
   else if (e.key && e.key.toLowerCase() === "m") showMenu();
   else if (e.key === "ArrowLeft") {
     const step = e.shiftKey ? 0.002 : (e.ctrlKey ? 0.025 : 0.01);
@@ -2784,14 +2907,21 @@ ui.btnSpinReset.addEventListener("click", () => {
 });
 ui.btnShoot.addEventListener("click", () => {
   ensureAudio();
+  if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
   if (game.powerPercent < 1) { game.powerPercent = 50; updatePowerUI(); }
   startShot();
 });
-ui.btnStart.addEventListener("click", () => { ensureAudio(); hideMenu(); newGame(); });
+ui.btnStart.addEventListener("click", () => { ensureAudio(); if (game.mode === "online") { openLobby(); } else { hideMenu(); newGame(); } });
 ui.btnMenu.addEventListener("click", showMenu);
 ui.btnRestart.addEventListener("click", () => newGame());
 ui.btnSound.addEventListener("click", () => { game.soundOn = !game.soundOn; ui.btnSound.style.opacity = game.soundOn ? "1" : "0.4"; });
-ui.endRestart.addEventListener("click", () => { ui.endScreen.classList.remove("show"); newGame(); });
+ui.endRestart.addEventListener("click", () => {
+  ui.endScreen.classList.remove("show");
+  if (game.mode === "online" && online.ws?.readyState === WebSocket.OPEN) {
+    online.ws.send(JSON.stringify({ type: "rematch" }));
+  }
+  newGame();
+});
 ui.endMenu.addEventListener("click", () => { ui.endScreen.classList.remove("show"); showMenu(); });
 
 function showMenu() {
@@ -2902,10 +3032,12 @@ function updateUI() {
   let modeText = "";
   if (game.mode === "hotseat") modeText = "Hot-Seat";
   else if (game.mode === "ai") modeText = "vs KI (" + game.difficulty + ")";
+  else if (game.mode === "online") modeText = "Online";
   else modeText = "Solo / Übung";
   ui.modeTag.textContent = game.variant === "drill15" ? "15-Kugeln Drill" : game.variant === "basis" ? "Basisübung" : `${variant} · ${modeText}`;
   if (game.mode === "ai") { game.players[0].name = "Du"; game.players[1].name = "KI"; }
   else if (game.mode === "solo") { game.players[0].name = "Übung"; game.players[1].name = "—"; }
+  else if (game.mode === "online") { /* names set by lobby */ }
   else { game.players[0].name = "Spieler 1"; game.players[1].name = "Spieler 2"; }
   ui.p1Name.textContent = game.players[0].name;
   ui.p2Name.textContent = game.players[1].name;
@@ -2926,6 +3058,8 @@ function updateUI() {
     ui.statusLine.textContent = "Ball-in-Hand: Weiße per LMB-Klick platzieren";
   } else if (game.mode === "ai" && game.currentPlayer === 1) {
     ui.statusLine.textContent = "KI denkt nach…";
+  } else if (game.mode === "online" && game.currentPlayer !== online.myPlayer) {
+    ui.statusLine.textContent = `${game.players[game.currentPlayer].name} ist am Zug – warte…`;
   } else if (game.variant === "basis" && game.placingCue) {
     ui.statusLine.textContent = "Ball-in-Hand – Weiße frei platzieren, dann stoßen";
   } else if (game.variant === "basis") {
@@ -3021,8 +3155,11 @@ function playerInfoText(player) {
 }
 
 function newGame() {
+  const savedNames = game.mode === "online"
+    ? [game.players[0].name, game.players[1].name] : null;
   game.players[0].group = null; game.players[0].potted = []; game.players[0].consecutiveFouls = 0;
   game.players[1].group = null; game.players[1].potted = []; game.players[1].consecutiveFouls = 0;
+  if (savedNames) { game.players[0].name = savedNames[0]; game.players[1].name = savedNames[1]; }
   game.currentPlayer = 0;
   game.state = "aiming"; game.shotInProgress = false;
   game.firstHit = null; game.ballsPottedThisShot = [];
@@ -3061,6 +3198,265 @@ function init() {
   requestAnimationFrame(loop);
 }
 init();
+
+// ── Online-Modus ──────────────────────────────────────────────────────────────
+const RELAY_URL = "wss://pbc-relay.onrender.com";
+
+const uiOnline = {
+  lobby:         document.getElementById("onlineLobby"),
+  setup:         document.getElementById("lobbySetup"),
+  waiting:       document.getElementById("lobbyWaiting"),
+  name:          document.getElementById("onlineName"),
+  codeDisplay:   document.getElementById("roomCodeDisplay"),
+  joinCodeRow:   document.getElementById("joinCodeRow"),
+  joinCodeInput: document.getElementById("joinCodeInput"),
+  error:         document.getElementById("lobbyError"),
+  btnCreate:     document.getElementById("btnCreateRoom"),
+  btnJoin:       document.getElementById("btnJoinRoom"),
+  btnJoinOk:     document.getElementById("btnJoinConfirm"),
+  btnBack:       document.getElementById("btnLobbyBack"),
+  disconnect:    document.getElementById("onlineDisconnect"),
+  btnDisBack:    document.getElementById("btnDisconnectBack"),
+};
+
+function openLobby() {
+  uiOnline.lobby.style.display = "flex";
+  uiOnline.setup.style.display = "";
+  uiOnline.waiting.style.display = "none";
+  uiOnline.error.style.display = "none";
+  uiOnline.joinCodeRow.style.display = "none";
+  ui.menu.classList.add("hidden");
+}
+
+function closeLobby() {
+  uiOnline.lobby.style.display = "none";
+  if (online.ws) { online.ws.close(); online.ws = null; }
+  game.mode = "hotseat";
+  document.querySelectorAll("#optMode .opt").forEach(o => {
+    o.classList.toggle("selected", o.dataset.val === "hotseat");
+  });
+  showMenu();
+}
+
+function showLobbyError(text) {
+  uiOnline.error.textContent = text;
+  uiOnline.error.style.display = "";
+}
+
+function connectRelay(onOpen) {
+  if (online.ws) { online.ws.close(); }
+  online.ws = new WebSocket(RELAY_URL);
+  online.ws.onopen = onOpen;
+  online.ws.onmessage = e => {
+    console.log("[online] empfangen:", e.data);
+    try { handleRelayMessage(JSON.parse(e.data)); } catch(err) { console.error("[online] Fehler:", err); }
+  };
+  online.ws.onerror = () => showLobbyError("Verbindungsfehler – Server nicht erreichbar.");
+  online.ws.onclose = () => {
+    if (game.mode === "online" && online.connected) {
+      online.connected = false;
+      ui.endScreen.classList.remove("show");
+      uiOnline.disconnect.style.display = "flex";
+    }
+  };
+}
+
+function handleRelayMessage(msg) {
+  switch (msg.type) {
+    case "created":
+      online.role = "host";
+      online.myPlayer = 0;
+      uiOnline.codeDisplay.textContent = msg.code;
+      break;
+    case "start": {
+      online.connected = true;
+      if (!online.role) { online.role = "guest"; online.myPlayer = 1; }
+      const myName = (uiOnline.name.value.trim()) || (online.role === "host" ? "Spieler 1" : "Spieler 2");
+      const oppName = msg.opponentName || (online.role === "host" ? "Spieler 2" : "Spieler 1");
+      game.players[online.myPlayer].name = myName;
+      game.players[1 - online.myPlayer].name = oppName;
+      uiOnline.lobby.style.display = "none";
+      hideMenu();
+      newGame();
+      updateUI();
+      break;
+    }
+    case "shot":
+      console.log("[online] shot empfangen, currentPlayer=", game.currentPlayer, "myPlayer=", online.myPlayer, "mode=", game.mode);
+      if (game.mode === "online" && game.currentPlayer !== online.myPlayer) {
+        _onlineShotQueue.push(msg);
+        tryDequeueOnlineShot();
+      }
+      break;
+    case "sync":
+      if (game.mode === "online") {
+        if (online.waitingForSync) {
+          online.pendingSync = msg; // Physik läuft noch – puffern
+        } else {
+          applyOnlineSync(msg);
+        }
+      }
+      break;
+    case "rematch":
+      if (game.mode === "online") {
+        ui.endScreen.classList.remove("show");
+        newGame();
+        updateUI();
+      }
+      break;
+    case "disconnect":
+      online.connected = false;
+      ui.endScreen.classList.remove("show");
+      uiOnline.disconnect.style.display = "flex";
+      break;
+    case "error":
+      showLobbyError(msg.msg);
+      uiOnline.setup.style.display = "";
+      uiOnline.waiting.style.display = "none";
+      break;
+  }
+}
+
+function tryDequeueOnlineShot() {
+  if (_onlineShotQueue.length === 0) return;
+  if (game.state !== "aiming" || game.shotInProgress) return;
+  if (game.currentPlayer === online.myPlayer) return;
+  const msg = _onlineShotQueue.shift();
+  game.cueBall.x = msg.cbX;
+  game.cueBall.y = msg.cbY;
+  game.cueBall.inPlay = true;
+  game.placingCue = false;
+  game.ballInHand = false;
+  game.kitchenOnly = false;
+  game.aimAngle = msg.angle;
+  game.powerPercent = msg.power;
+  game.spinX = msg.spinX;
+  game.spinY = msg.spinY;
+  online.waitingForSync = true;
+  applyOnlineShot();
+}
+
+function applyOnlineShot() {
+  if (game.state !== "aiming" || game.shotInProgress) return;
+  const power = (game.powerPercent / 100) * MAX_POWER;
+  const angle = game.aimAngle;
+  const dirX = Math.cos(angle), dirY = Math.sin(angle);
+  game.firstHit = null;
+  game.ballsPottedThisShot = [];
+  game.cuePotted = false;
+  game.anyCushionAfterFirstHit = false;
+  game.lowestAtShotStart = (game.variant === "9ball") ? lowestBallOnTable() : null;
+  game.spinPending = { x: game.spinX, y: game.spinY, dirX, dirY, power, used: false };
+  const cue = game.cueBall;
+  cue.vx = dirX * power; cue.vy = dirY * power;
+  game.shotInProgress = true; game.state = "moving";
+  resetCanvasZoom();
+  game.spinX = 0; game.spinY = 0;
+  drawSpinCanvas(); updateSpinLabel();
+}
+
+function applyOnlineSync(msg) {
+  for (const bd of msg.balls) {
+    const b = game.balls.find(x => x.num === bd.num);
+    if (b) { b.x = bd.x; b.y = bd.y; b.inPlay = bd.inPlay; b.vx = 0; b.vy = 0; }
+  }
+  game.currentPlayer    = msg.currentPlayer;
+  game.players[0].group = msg.p0group;
+  game.players[1].group = msg.p1group;
+  game.players[0].potted = msg.p0potted ? [...msg.p0potted] : [];
+  game.players[1].potted = msg.p1potted ? [...msg.p1potted] : [];
+  game.open8ball        = msg.open8ball;
+  game.ballInHand       = msg.ballInHand;
+  game.placingCue       = msg.placingCue;
+  game.kitchenOnly      = msg.kitchenOnly;
+  game.isBreakShot      = msg.isBreakShot;
+  game.foulMessage      = msg.foulMessage;
+  game.called8Pocket    = msg.called8Pocket;
+  game.pushOutAvailable = msg.pushOutAvailable;
+  game.inPushOut        = msg.inPushOut;
+  game.awaitingPushOutDecision = msg.awaitingPushOutDecision;
+  game.state            = msg.state;
+  game.endMessage       = msg.endMessage;
+  game.aimActive        = false;
+  if (msg.state === "ended") { updateUI(); showEndScreen(); return; }
+  tryDequeueOnlineShot();
+  updateUI();
+}
+
+function sendOnlineSync() {
+  if (!online.ws || online.ws.readyState !== WebSocket.OPEN) return;
+  online.ws.send(JSON.stringify({
+    type: "sync",
+    balls: game.balls.map(b => ({ num: b.num, inPlay: b.inPlay, x: b.x, y: b.y })),
+    currentPlayer: game.currentPlayer,
+    p0group: game.players[0].group,
+    p1group: game.players[1].group,
+    p0potted: [...game.players[0].potted],
+    p1potted: [...game.players[1].potted],
+    open8ball: game.open8ball,
+    ballInHand: game.ballInHand,
+    placingCue: game.placingCue,
+    kitchenOnly: game.kitchenOnly,
+    isBreakShot: game.isBreakShot,
+    foulMessage: game.foulMessage || "",
+    called8Pocket: game.called8Pocket,
+    pushOutAvailable: game.pushOutAvailable,
+    inPushOut: game.inPushOut,
+    awaitingPushOutDecision: game.awaitingPushOutDecision,
+    state: game.state,
+    endMessage: game.endMessage || "",
+  }));
+}
+
+function sendOnlineShot() {
+  if (!online.ws || online.ws.readyState !== WebSocket.OPEN) {
+    console.warn("[online] sendOnlineShot: WS nicht offen, state=", online.ws?.readyState);
+    return;
+  }
+  console.log("[online] sende shot, currentPlayer=", game.currentPlayer, "myPlayer=", online.myPlayer);
+  online.ws.send(JSON.stringify({
+    type: "shot",
+    angle: game.aimAngle,
+    power: game.powerPercent,
+    spinX: game.spinX,
+    spinY: game.spinY,
+    cbX: game.cueBall.x,
+    cbY: game.cueBall.y,
+  }));
+}
+
+uiOnline.btnCreate.addEventListener("click", () => {
+  const name = uiOnline.name.value.trim() || "Spieler 1";
+  uiOnline.setup.style.display = "none";
+  uiOnline.waiting.style.display = "";
+  uiOnline.error.style.display = "none";
+  connectRelay(() => online.ws.send(JSON.stringify({ type: "create", name })));
+});
+
+uiOnline.btnJoin.addEventListener("click", () => {
+  uiOnline.joinCodeRow.style.display = "";
+  uiOnline.joinCodeInput.focus();
+});
+
+uiOnline.btnJoinOk.addEventListener("click", () => {
+  const code = uiOnline.joinCodeInput.value.trim().toUpperCase();
+  if (code.length < 4) { showLobbyError("Bitte gültigen Code eingeben."); return; }
+  const name = uiOnline.name.value.trim() || "Spieler 2";
+  uiOnline.joinCodeRow.style.display = "none";
+  uiOnline.setup.style.display = "none";
+  uiOnline.waiting.style.display = "";
+  uiOnline.codeDisplay.textContent = code;
+  connectRelay(() => online.ws.send(JSON.stringify({ type: "join", code, name })));
+});
+
+uiOnline.btnBack.addEventListener("click", closeLobby);
+
+uiOnline.btnDisBack.addEventListener("click", () => {
+  uiOnline.disconnect.style.display = "none";
+  online.connected = false;
+  game.mode = "hotseat";
+  showMenu();
+});
 </script>
 </body>
 </html>
