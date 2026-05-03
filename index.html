@@ -258,6 +258,13 @@
     transition: all 0.2s;
   }
   .spin-reset:hover { border-color: var(--gold-500); color: var(--gold-500); }
+  .spin-tabs { display: flex; gap: 4px; margin-bottom: 6px; width: 100%; }
+  .spin-tab {
+    flex: 1; padding: 4px 0; font-size: 10px; letter-spacing: 0.05em;
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 4px;
+    background: transparent; color: #888; cursor: pointer;
+  }
+  .spin-tab.active { border-color: var(--gold-500); color: var(--gold-500); background: rgba(212,160,67,0.08); }
 
   #btnShoot {
     background: var(--gold-500);
@@ -799,7 +806,7 @@
   body.portrait-mode .power-section { flex: 1; min-width: 0; }
   body.portrait-mode .power-value { font-size: 16px; }
   body.portrait-mode .spin-section { flex: 0 0 auto; }
-  body.portrait-mode #spinCanvas { width: 60px; height: 60px; }
+  body.portrait-mode #spinCanvas, body.portrait-mode #elevCanvas { width: 60px; height: 60px; }
   body.portrait-mode .spin-label { font-size: 10px; }
   body.portrait-mode .spin-reset { padding: 3px 10px; font-size: 9px; }
   body.portrait-mode #btnShoot {
@@ -1021,10 +1028,20 @@
       </div>
 
       <div class="spin-section">
-        <p class="panel-title">Effet</p>
-        <canvas id="spinCanvas" width="110" height="110"></canvas>
-        <div class="spin-label" id="spinLabel">kein Effet</div>
-        <button class="spin-reset" id="btnSpinReset">zurücksetzen</button>
+        <div class="spin-tabs">
+          <button class="spin-tab active" id="tabEffet">EFFET</button>
+          <button class="spin-tab" id="tabWinkel">WINKEL</button>
+        </div>
+        <div id="spinPad">
+          <canvas id="spinCanvas" width="110" height="110"></canvas>
+          <div class="spin-label" id="spinLabel">kein Effet</div>
+          <button class="spin-reset" id="btnSpinReset">zurücksetzen</button>
+        </div>
+        <div id="elevPad" style="display:none">
+          <canvas id="elevCanvas" width="110" height="110"></canvas>
+          <div class="spin-label" id="elevLabel">0° (flach)</div>
+          <button class="spin-reset" id="btnElevReset">zurücksetzen</button>
+        </div>
       </div>
 
       <button id="btnShoot">
@@ -1157,7 +1174,7 @@ const game = {
   ballInHand: false, endMessage: "", open8ball: true, winner: null,
   isBreakShot: true, calledBall: null, kitchenOnly: false,
   aimAngle: 0, aimLocked: false, aimActive: false, powerPercent: 50,
-  spinX: 0, spinY: 0,
+  spinX: 0, spinY: 0, cueElevation: 0,
   spinPending: { x:0, y:0, dirX:0, dirY:0, power:0, used:false },
   placingCue: false, aiThinking: false, aiTimer: 0,
   foulMessage: "", foulTimer: 0,
@@ -1558,6 +1575,21 @@ function step() {
     }
     if (Math.hypot(b.vx, b.vy) < MIN_VEL) { b.vx = 0; b.vy = 0; }
   }
+  // Swerve-Kraft auf Weißkugel (nur wenn Élévation > 0 und Seitenschnitt vorhanden)
+  {
+    const sp = game.spinPending;
+    const cue = game.cueBall;
+    if (cue.inPlay && !sp.used && Math.abs(sp.x) > 0.02 && game.cueElevation > 0.05) {
+      const speed = Math.hypot(cue.vx, cue.vy);
+      if (speed > MIN_VEL) {
+        const nx = cue.vx / speed, ny = cue.vy / speed;
+        const elevFactor = Math.sin(game.cueElevation * Math.PI / 4); // 0°→0, 45°→0.707
+        const swerveAcc  = Math.abs(sp.x) * elevFactor * 0.004;
+        cue.vx += -ny * Math.sign(sp.x) * swerveAcc;
+        cue.vy +=  nx * Math.sign(sp.x) * swerveAcc;
+      }
+    }
+  }
   for (const b of balls) {
     if (!b.inPlay) continue;
     for (let pi = 0; pi < POCKETS.length; pi++) {
@@ -1642,8 +1674,15 @@ function startShot() {
   if (needs8PocketCall()) { game.selecting8Pocket = true; updateUI(); return; }
   if (game.variant === "basis") { game.basisCueSaveX = game.cueBall.x; game.basisCueSaveY = game.cueBall.y; }
   const power = (game.powerPercent / 100) * MAX_POWER;
-  const angle = game.aimAngle;
-  const dirX = Math.cos(angle), dirY = Math.sin(angle);
+  // Deflection (Squirt) – Predator K2 Revo: K=0.044 rad, P=0.64 (Fit aus Messtabelle)
+  const K_DEF = 0.044, P_DEF = 0.64;
+  let shotAngle = game.aimAngle;
+  if (Math.abs(game.spinX) > 0.02) {
+    const pf = game.powerPercent / 100;
+    const deflAngle = K_DEF * Math.abs(game.spinX) * Math.pow(pf, P_DEF);
+    shotAngle -= Math.sign(game.spinX) * deflAngle;
+  }
+  const dirX = Math.cos(shotAngle), dirY = Math.sin(shotAngle);
   game.firstHit = null;
   game.ballsPottedThisShot = [];
   game.cuePotted = false;
@@ -2413,7 +2452,15 @@ function drawAimingHelp() {
   if (!cue.inPlay) return;
   if (game.mode === "ai" && game.currentPlayer === 1) return;
   if (game.mode === "online" && game.currentPlayer !== online.myPlayer && online.role !== "spectator") return;
-  const angle = game.aimAngle;
+  // Deflection-Vorschau: Ziellinie in tatsächlicher Flugrichtung (inkl. Squirt)
+  const K_DEF_P = 0.044, P_DEF_P = 0.64;
+  let aimAngle = game.aimAngle;
+  if (Math.abs(game.spinX) > 0.02) {
+    const pf = game.powerPercent / 100;
+    const deflP = K_DEF_P * Math.abs(game.spinX) * Math.pow(pf, P_DEF_P);
+    aimAngle -= Math.sign(game.spinX) * deflP;
+  }
+  const angle = aimAngle;
   const dx = Math.cos(angle), dy = Math.sin(angle);
   const maxLen = 800;
   let endX = cue.x + dx * maxLen, endY = cue.y + dy * maxLen;
@@ -2464,8 +2511,43 @@ function drawAimingHelp() {
       ctx.setLineDash([]); ctx.shadowBlur = 0;
     }
   }
-  drawCueStick(cue.x, cue.y, angle, game.powerPercent);
+  drawCueStick(cue.x, cue.y, game.aimAngle, game.powerPercent);
+  // Swerve-Pfad-Vorschau: gebogene goldene Linie wenn Élévation + Seitenschnitt aktiv
+  if (Math.abs(game.spinX) > 0.02 && game.cueElevation > 0.05) {
+    const swPath = predictSwervePath(cue.x, cue.y, aimAngle, game.spinX,
+      (game.powerPercent / 100) * MAX_POWER, game.cueElevation);
+    if (swPath.length > 1) {
+      ctx.save();
+      ctx.setLineDash([6, 4]); ctx.strokeStyle = "rgba(255,160,50,0.85)"; ctx.lineWidth = 2;
+      ctx.shadowColor = "rgba(255,160,50,0.5)"; ctx.shadowBlur = 5;
+      ctx.beginPath(); ctx.moveTo(swPath[0].x, swPath[0].y);
+      for (let i = 1; i < swPath.length; i++) ctx.lineTo(swPath[i].x, swPath[i].y);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
   ctx.restore();
+}
+
+function predictSwervePath(cx, cy, angle, spinX, power, elev) {
+  const path = [{x: cx, y: cy}];
+  let vx = Math.cos(angle) * power, vy = Math.sin(angle) * power;
+  let x = cx, y = cy;
+  const ef = Math.sin(elev * Math.PI / 4);
+  for (let i = 0; i < 200; i++) {
+    vx *= FRICTION; vy *= FRICTION;
+    const sp = Math.hypot(vx, vy);
+    if (sp < MIN_VEL) break;
+    const ns = Math.max(0, sp - ROLLING_DRAG) / sp;
+    vx *= ns; vy *= ns;
+    const nx = vx / sp, ny = vy / sp;
+    vx += -ny * Math.sign(spinX) * Math.abs(spinX) * ef * 0.004;
+    vy +=  nx * Math.sign(spinX) * Math.abs(spinX) * ef * 0.004;
+    x += vx; y += vy;
+    path.push({x, y});
+    if (x < PLAY_X1 || x > PLAY_X2 || y < PLAY_Y1 || y > PLAY_Y2) break;
+  }
+  return path;
 }
 
 function drawCueStick(cx, cy, angle, powerPercent) {
@@ -2540,6 +2622,54 @@ function render() {
 
 const spinCanvas = document.getElementById("spinCanvas");
 const sctx = spinCanvas.getContext("2d");
+const elevCanvas = document.getElementById("elevCanvas");
+const ectx = elevCanvas.getContext("2d");
+
+function drawElevCanvas() {
+  const cw = elevCanvas.width, ch = elevCanvas.height;
+  ectx.clearRect(0, 0, cw, ch);
+  // Tischfläche (Linie)
+  const floorY = ch * 0.75;
+  ectx.strokeStyle = "rgba(255,255,255,0.2)"; ectx.lineWidth = 1;
+  ectx.beginPath(); ectx.moveTo(10, floorY); ectx.lineTo(cw - 10, floorY); ectx.stroke();
+  // Weißkugel
+  const ballX = cw * 0.65, ballY = floorY - 12;
+  ectx.beginPath(); ectx.arc(ballX, ballY, 12, 0, Math.PI * 2);
+  ectx.fillStyle = "#fff"; ectx.fill();
+  // Queue: von links schräg auf Ball zeigend
+  const elevDeg = game.cueElevation * 45;
+  const elevRad = elevDeg * Math.PI / 180;
+  const qLen = 70;
+  const qTipX = ballX - Math.cos(elevRad) * 14;
+  const qTipY = ballY + Math.sin(elevRad) * 14;
+  const qEndX = qTipX - Math.cos(elevRad) * qLen;
+  const qEndY = qTipY + Math.sin(elevRad) * qLen;
+  const qGrad = ectx.createLinearGradient(qTipX, qTipY, qEndX, qEndY);
+  qGrad.addColorStop(0, "#ffd6a0"); qGrad.addColorStop(0.08, "#3b2a1a");
+  qGrad.addColorStop(0.5, "#a07344"); qGrad.addColorStop(1, "#5a3a1d");
+  ectx.strokeStyle = qGrad; ectx.lineWidth = 4; ectx.lineCap = "round";
+  ectx.beginPath(); ectx.moveTo(qTipX, qTipY); ectx.lineTo(qEndX, qEndY); ectx.stroke();
+  // Winkelangabe
+  ectx.fillStyle = elevDeg > 0 ? "var(--gold-500, #d4a043)" : "rgba(255,255,255,0.5)";
+  ectx.font = "bold 13px Inter, sans-serif"; ectx.textAlign = "center";
+  ectx.fillText(Math.round(elevDeg) + "°", cw * 0.3, floorY + 20);
+  // Label
+  ectx.font = "11px Inter, sans-serif"; ectx.fillStyle = "rgba(255,255,255,0.4)";
+  ectx.fillText(elevDeg === 0 ? "flach" : elevDeg <= 15 ? "leicht" : elevDeg <= 30 ? "mittel" : "steil", cw * 0.3, floorY + 33);
+}
+
+function updateElevLabel() {
+  const deg = Math.round(game.cueElevation * 45);
+  document.getElementById("elevLabel").textContent =
+    deg === 0 ? "0° (flach)" : `${deg}° Queue-Winkel`;
+}
+
+function handleElevInput(clientY) {
+  const r = elevCanvas.getBoundingClientRect();
+  const relY = (clientY - r.top) / r.height;
+  game.cueElevation = clamp(1 - relY, 0, 1);
+  drawElevCanvas(); updateElevLabel();
+}
 
 function drawSpinCanvas() {
   const cw = spinCanvas.width, ch = spinCanvas.height;
@@ -3155,6 +3285,29 @@ ui.btnSpinReset.addEventListener("click", () => {
   drawSpinCanvas(); updateSpinLabel();
   sendPreview();
 });
+
+// Élévation-Canvas – Interaktion (Klick/Touch auf Y-Position)
+elevCanvas.addEventListener("click", (e) => handleElevInput(e.clientY));
+elevCanvas.addEventListener("touchstart", (e) => { e.preventDefault(); handleElevInput(e.touches[0].clientY); }, { passive: false });
+elevCanvas.addEventListener("touchmove",  (e) => { e.preventDefault(); if (e.touches[0]) handleElevInput(e.touches[0].clientY); }, { passive: false });
+document.getElementById("btnElevReset").addEventListener("click", () => {
+  game.cueElevation = 0; drawElevCanvas(); updateElevLabel();
+});
+
+// Tab-Umschalter EFFET / WINKEL
+document.getElementById("tabEffet").addEventListener("click", () => {
+  document.getElementById("spinPad").style.display = "";
+  document.getElementById("elevPad").style.display = "none";
+  document.getElementById("tabEffet").classList.add("active");
+  document.getElementById("tabWinkel").classList.remove("active");
+});
+document.getElementById("tabWinkel").addEventListener("click", () => {
+  document.getElementById("spinPad").style.display = "none";
+  document.getElementById("elevPad").style.display = "";
+  document.getElementById("tabEffet").classList.remove("active");
+  document.getElementById("tabWinkel").classList.add("active");
+  drawElevCanvas();
+});
 ui.btnShoot.addEventListener("click", () => {
   ensureAudio();
   if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
@@ -3195,6 +3348,12 @@ function showMenu() {
   }
   _score = [0, 0];
   _scoreUpdated = false;
+  game.cueElevation = 0;
+  // Elevation-Tab zurücksetzen auf EFFET
+  document.getElementById("spinPad").style.display = "";
+  document.getElementById("elevPad").style.display = "none";
+  document.getElementById("tabEffet").classList.add("active");
+  document.getElementById("tabWinkel").classList.remove("active");
   ui.menu.classList.remove("hidden");
   ui.endScreen.classList.remove("show");
   ui.callShotBanner.classList.remove("show");
@@ -3483,7 +3642,7 @@ function newGame() {
   game.open8ball = true; game.isBreakShot = true; game.calledBall = null;
   game.endMessage = ""; game.foulMessage = ""; game.foulTimer = 0;
   game.aimAngle = 0; game.powerPercent = 0;
-  game.spinX = 0; game.spinY = 0;
+  game.spinX = 0; game.spinY = 0; game.cueElevation = 0;
   game.aiThinking = false;
   game.breakCushionBalls = new Set();
   game.called8Pocket = null; game.ball8PocketIdx = -1; game.selecting8Pocket = false;
@@ -3518,6 +3677,7 @@ window.addEventListener("orientationchange", () => { setTimeout(applyLayout, 100
 function init() {
   newGame(); showMenu();
   drawSpinCanvas(); updateSpinLabel();
+  drawElevCanvas(); updateElevLabel();
   requestAnimationFrame(loop);
 }
 init();
