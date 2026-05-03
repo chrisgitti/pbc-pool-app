@@ -1696,8 +1696,9 @@ function startShot() {
   resetCanvasZoom();
   soundCueHit(power);
   if (game.mode === "online") sendOnlineShot();
-  game.spinX = 0; game.spinY = 0;
+  game.spinX = 0; game.spinY = 0; game.cueElevation = 0;
   drawSpinCanvas(); updateSpinLabel();
+  drawElevCanvas(); updateElevLabel();
 }
 
 function onShotComplete() {
@@ -2641,9 +2642,9 @@ function drawElevCanvas() {
   const elevRad = elevDeg * Math.PI / 180;
   const qLen = 70;
   const qTipX = ballX - Math.cos(elevRad) * 14;
-  const qTipY = ballY + Math.sin(elevRad) * 14;
+  const qTipY = ballY - Math.sin(elevRad) * 14;  // Y nach oben = minus im Canvas-KS
   const qEndX = qTipX - Math.cos(elevRad) * qLen;
-  const qEndY = qTipY + Math.sin(elevRad) * qLen;
+  const qEndY = qTipY - Math.sin(elevRad) * qLen; // Schaft geht nach oben links
   const qGrad = ectx.createLinearGradient(qTipX, qTipY, qEndX, qEndY);
   qGrad.addColorStop(0, "#ffd6a0"); qGrad.addColorStop(0.08, "#3b2a1a");
   qGrad.addColorStop(0.5, "#a07344"); qGrad.addColorStop(1, "#5a3a1d");
