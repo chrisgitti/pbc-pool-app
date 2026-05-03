@@ -1149,6 +1149,7 @@ let _pinchStartMidX = 0, _pinchStartMidY = 0;
 let _pinchCanvasNatLeft = 0, _pinchCanvasNatTop = 0;
 let _pinchSavedAimAngle = null;
 let _lastTapTime = 0;
+let _lastMouseDownTime = 0;
 
 function applyCanvasZoom() {
   canvas.style.transformOrigin = '0 0';
@@ -2663,17 +2664,18 @@ function handleCanvasDown(e) {
   // Online: block ALL interaction when it's the opponent's turn
   if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
 
-  // BallInHand re-entry: after aim mode, clicking near cue ball re-enters placement
-  if (game.ballInHand && !game.placingCue && e.button === 0) {
+  // BallInHand: Doppelklick auf Weiße togglet Verschiebe-/Zielmodus
+  if (game.ballInHand && e.button === 0) {
     const cue = game.cueBall;
-    if (Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 18) {
-      game.placingCue = true;
-      cueDragOffsetX = cue.x - p.x; cueDragOffsetY = cue.y - p.y;
-      cueDragStartX = p.x; cueDragStartY = p.y; cueDragMoved = false;
-      _cueDragStartTime = Date.now();
-      cueDragging = true; lmbDragging = false;
+    const now = Date.now();
+    if (now - _lastMouseDownTime < 300 && Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 5) {
+      game.placingCue = !game.placingCue;
+      cueDragging = false; lmbDragging = false;
+      _lastMouseDownTime = 0;
+      updateUI();
       return;
     }
+    _lastMouseDownTime = now;
   }
 
   if (game.placingCue) {
@@ -2762,18 +2764,6 @@ function handleCanvasUp(e) {
 }
 
 canvas.addEventListener("mousedown", (e) => { if (Date.now() - _lastTouchTimestamp < 500) return; handleCanvasDown(e); });
-canvas.addEventListener("dblclick", (e) => {
-  if (Date.now() - _lastTouchTimestamp < 500) return;
-  if (!game.ballInHand) return;
-  if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
-  const p = mousePos(e);
-  const cue = game.cueBall;
-  if (Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 5) {
-    game.placingCue = !game.placingCue;
-    if (game.placingCue) { cueDragging = false; lmbDragging = false; }
-    updateUI();
-  }
-});
 canvas.addEventListener("mousemove", handleCanvasMove);
 canvas.addEventListener("mouseup", (e) => { if (Date.now() - _lastTouchTimestamp < 500) return; handleCanvasUp(e); });
 canvas.addEventListener("mouseleave", () => {
