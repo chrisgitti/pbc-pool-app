@@ -3348,10 +3348,14 @@ function playerInfoText(player) {
   }
   if (game.variant === "8ball") {
     if (!player.group) return "Gruppe: offen";
-    const remaining = 7 - player.potted.length;
+    const total = game.miniCount8 > 0 ? (game.miniCount8 - 1) / 2 : 7;
+    const remaining = total - player.potted.length;
     return `${player.group === "solid" ? "Volle" : "Halbe"} – ${remaining} übrig`;
   }
-  if (game.variant === "9ball") return `Versenkt: ${player.potted.length}`;
+  if (game.variant === "9ball") {
+    if (game.miniCount9 > 0) return `Versenkt: ${player.potted.length} / ${game.miniCount9}`;
+    return `Versenkt: ${player.potted.length}`;
+  }
   return `Versenkt: ${player.potted.length}`;
 }
 
