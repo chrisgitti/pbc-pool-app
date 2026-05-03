@@ -2374,7 +2374,7 @@ function drawAimingHelp() {
   const cue = game.cueBall;
   if (!cue.inPlay) return;
   if (game.mode === "ai" && game.currentPlayer === 1) return;
-  if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
+  if (game.mode === "online" && game.currentPlayer !== online.myPlayer && online.role !== "spectator") return;
   const angle = game.aimAngle;
   const dx = Math.cos(angle), dy = Math.sin(angle);
   const maxLen = 800;
