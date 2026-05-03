@@ -3335,8 +3335,12 @@ function updateUI() {
 
   if (online.role === "spectator") {
     document.getElementById("bottomControls").style.visibility = "hidden";
-    document.getElementById("controlPanel").style.visibility   = "hidden";
-    document.getElementById("spectatorBadge").style.display    = "flex";
+    const cp = document.getElementById("controlPanel");
+    cp.style.visibility    = "visible";
+    cp.style.pointerEvents = "none";
+    cp.querySelector(".aim-section").style.visibility = "hidden";
+    document.getElementById("btnShoot").style.visibility = "hidden";
+    document.getElementById("spectatorBadge").style.display = "flex";
   }
 }
 
@@ -3641,7 +3645,11 @@ function handleRelayMessage(msg) {
         canvas.style.pointerEvents = "";
         document.getElementById("spectatorBadge").style.display = "none";
         document.getElementById("bottomControls").style.visibility = "";
-        document.getElementById("controlPanel").style.visibility = "";
+        const cp = document.getElementById("controlPanel");
+        cp.style.visibility    = "";
+        cp.style.pointerEvents = "";
+        cp.querySelector(".aim-section").style.visibility = "";
+        document.getElementById("btnShoot").style.visibility = "";
         online.role = null; online.myPlayer = 0; online.ws = null;
         game.mode = "hotseat";
         showMenu();
@@ -3819,7 +3827,11 @@ document.getElementById("btnSpectatorLeave").addEventListener("click", () => {
   canvas.style.pointerEvents = "";
   document.getElementById("spectatorBadge").style.display = "none";
   document.getElementById("bottomControls").style.visibility = "";
-  document.getElementById("controlPanel").style.visibility  = "";
+  const cp = document.getElementById("controlPanel");
+  cp.style.visibility    = "";
+  cp.style.pointerEvents = "";
+  cp.querySelector(".aim-section").style.visibility = "";
+  document.getElementById("btnShoot").style.visibility = "";
   online.role = null; online.myPlayer = 0; online.ws = null;
   game.mode = "hotseat";
   showMenu();
