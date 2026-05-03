@@ -1024,6 +1024,7 @@
   <div class="card">
     <h2 id="endTitle">Spiel beendet</h2>
     <p id="endText"></p>
+    <p id="endScore" style="display:none;font-size:1.4rem;font-weight:700;color:#d4a043;margin:6px 0 0;"></p>
     <div class="actions">
       <button class="primary" id="endRestart">Revanche</button>
       <button id="endMenu">Menü</button>
@@ -1153,6 +1154,8 @@ let _pinchSavedAimAngle = null;
 let _lastTapTime = 0;
 let _lastMouseDownTime = 0;
 let _lastPreviewSent = 0;
+let _score = [0, 0];
+let _scoreUpdated = false;
 
 function applyCanvasZoom() {
   canvas.style.transformOrigin = '0 0';
@@ -3129,6 +3132,7 @@ ui.btnRestart.addEventListener("click", () => { if (game.mode === "online") { sh
 ui.btnSound.addEventListener("click", () => { game.soundOn = !game.soundOn; ui.btnSound.style.opacity = game.soundOn ? "1" : "0.4"; });
 ui.endRestart.addEventListener("click", () => {
   ui.endScreen.classList.remove("show");
+  _scoreUpdated = false;
   if (game.mode === "online" && online.ws?.readyState === WebSocket.OPEN) {
     online.ws.send(JSON.stringify({ type: "rematch" }));
   }
@@ -3143,6 +3147,8 @@ function showMenu() {
     online.ws.close();
     online.ws = null;
   }
+  _score = [0, 0];
+  _scoreUpdated = false;
   ui.menu.classList.remove("hidden");
   ui.endScreen.classList.remove("show");
   ui.callShotBanner.classList.remove("show");
@@ -3151,6 +3157,19 @@ function hideMenu() { ui.menu.classList.add("hidden"); }
 function showEndScreen() {
   ui.endTitle.textContent = "Spielende";
   ui.endText.textContent = game.endMessage;
+  if (!_scoreUpdated && game.winner !== undefined && game.winner !== null) {
+    _score[game.winner]++;
+    _scoreUpdated = true;
+  }
+  const scoreEl = document.getElementById("endScore");
+  if (_score[0] > 0 || _score[1] > 0) {
+    const n0 = game.players[0].name || "Spieler 1";
+    const n1 = game.players[1].name || "Spieler 2";
+    scoreEl.textContent = `${n0}  ${_score[0]} : ${_score[1]}  ${n1}`;
+    scoreEl.style.display = "";
+  } else {
+    scoreEl.style.display = "none";
+  }
   ui.endScreen.classList.add("show");
 }
 
@@ -3551,6 +3570,7 @@ function handleRelayMessage(msg) {
         game.rack9      = msg.rack9;
         game.miniCount8 = msg.miniCount8 ?? 0;
         game.miniCount9 = msg.miniCount9 ?? 0;
+        _scoreUpdated = false;
         newGame();
         updateUI();
       }
@@ -3574,6 +3594,7 @@ function handleRelayMessage(msg) {
     case "rematch":
       if (game.mode === "online" && online.connected) {
         ui.endScreen.classList.remove("show");
+        _scoreUpdated = false;
         if (online.role === "host") {
           newGame();
           online.ws.send(JSON.stringify({
@@ -3729,6 +3750,7 @@ function applyOnlineSync(msg) {
   game.awaitingPushOutDecision = msg.awaitingPushOutDecision;
   game.state            = msg.state;
   game.endMessage       = msg.endMessage;
+  if (msg.winner !== undefined && msg.winner !== null) game.winner = msg.winner;
   game.aimActive        = false;
   if (msg.state === "ended") { updateUI(); showEndScreen(); return; }
   tryDequeueOnlineShot();
@@ -3757,6 +3779,7 @@ function sendOnlineSync() {
     awaitingPushOutDecision: game.awaitingPushOutDecision,
     state: game.state,
     endMessage: game.endMessage || "",
+    winner: game.winner ?? null,
   }));
 }
 
