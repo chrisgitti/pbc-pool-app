@@ -2695,7 +2695,7 @@ function handleCanvasDown(e) {
         cueDragging = true; lmbDragging = false;
       } else {
         cueDragging = false; lmbDragging = true;
-        updateAimFromPoint(p); setAimStatus("Zielen…");
+        updateAimFromPoint(p); sendPreview(); setAimStatus("Zielen…");
       }
     } else if (e.button === 2) {
       if (lmbDragging) { lmbDragging = false; setAimStatus("Aim: gesperrt"); }
@@ -2709,7 +2709,7 @@ function handleCanvasDown(e) {
   if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
   if (e.button === 0) {
     lmbDragging = true; rmbDragging = false; rmbStart = null;
-    updateAimFromPoint(p);
+    updateAimFromPoint(p); sendPreview();
     setAimStatus("Zielen…");
   } else if (e.button === 2) {
     if (lmbDragging) { lmbDragging = false; setAimStatus("Aim: gesperrt"); }
