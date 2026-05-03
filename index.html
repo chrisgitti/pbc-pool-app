@@ -1150,6 +1150,7 @@ let _pinchCanvasNatLeft = 0, _pinchCanvasNatTop = 0;
 let _pinchSavedAimAngle = null;
 let _lastTapTime = 0;
 let _lastMouseDownTime = 0;
+let _lastPreviewSent = 0;
 
 function applyCanvasZoom() {
   canvas.style.transformOrigin = '0 0';
@@ -2729,10 +2730,12 @@ function handleCanvasMove(e) {
       if (ok) { cue.x = nx; cue.y = ny; }
     } else if (lmbDragging) {
       updateAimFromPoint(p);
+      sendPreview();
     } else if (rmbDragging && rmbStart) {
       const d = Math.hypot(p.x - rmbStart.x, p.y - rmbStart.y);
       game.powerPercent = clamp(d * POWER_DRAG_SCALE, 0, 100);
       updatePowerUI();
+      sendPreview();
     }
     return;
   }
@@ -2740,11 +2743,12 @@ function handleCanvasMove(e) {
   if (game.shotInProgress) return;
   if (game.mode === "ai" && game.currentPlayer === 1) return;
   if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
-  if (lmbDragging) updateAimFromPoint(p);
+  if (lmbDragging) { updateAimFromPoint(p); sendPreview(); }
   else if (rmbDragging && rmbStart) {
     const d = Math.hypot(p.x - rmbStart.x, p.y - rmbStart.y);
     game.powerPercent = clamp(d * POWER_DRAG_SCALE, 0, 100);
     updatePowerUI();
+    sendPreview();
   }
 }
 function handleCanvasUp(e) {
@@ -2850,11 +2854,13 @@ window.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowLeft") {
     const step = e.shiftKey ? 0.002 : (e.ctrlKey ? 0.025 : 0.01);
     game.aimAngle -= step;
+    sendPreview();
   } else if (e.key === "ArrowRight") {
     const step = e.shiftKey ? 0.002 : (e.ctrlKey ? 0.025 : 0.01);
     game.aimAngle += step;
-  } else if (e.key === "ArrowUp") { e.preventDefault(); game.powerPercent = clamp(game.powerPercent + 2, 0, 100); updatePowerUI(); }
-  else if (e.key === "ArrowDown") { e.preventDefault(); game.powerPercent = clamp(game.powerPercent - 2, 0, 100); updatePowerUI(); }
+    sendPreview();
+  } else if (e.key === "ArrowUp") { e.preventDefault(); game.powerPercent = clamp(game.powerPercent + 2, 0, 100); updatePowerUI(); sendPreview(); }
+  else if (e.key === "ArrowDown") { e.preventDefault(); game.powerPercent = clamp(game.powerPercent - 2, 0, 100); updatePowerUI(); sendPreview(); }
 });
 
 const ui = {
@@ -3048,10 +3054,10 @@ function setAimStatus(text) {
 
 ui.controlPanel.addEventListener("mouseenter", () => { game.aimLocked = true; });
 ui.controlPanel.addEventListener("mouseleave", () => { game.aimLocked = false; });
-ui.btnAimLeft.addEventListener("click", () => { game.aimAngle -= 0.012; game.aimActive = true; });
-ui.btnAimRight.addEventListener("click", () => { game.aimAngle += 0.012; game.aimActive = true; });
-ui.btnAimLeftFine.addEventListener("click", () => { game.aimAngle -= 0.002; game.aimActive = true; });
-ui.btnAimRightFine.addEventListener("click", () => { game.aimAngle += 0.002; game.aimActive = true; });
+ui.btnAimLeft.addEventListener("click", () => { game.aimAngle -= 0.012; game.aimActive = true; sendPreview(); });
+ui.btnAimRight.addEventListener("click", () => { game.aimAngle += 0.012; game.aimActive = true; sendPreview(); });
+ui.btnAimLeftFine.addEventListener("click", () => { game.aimAngle -= 0.002; game.aimActive = true; sendPreview(); });
+ui.btnAimRightFine.addEventListener("click", () => { game.aimAngle += 0.002; game.aimActive = true; sendPreview(); });
 
 let powerBarDragging = false;
 function setPowerFromPointer(clientX) {
@@ -3059,6 +3065,7 @@ function setPowerFromPointer(clientX) {
   const ratio = (clientX - r.left) / r.width;
   game.powerPercent = clamp(ratio * 100, 0, 100);
   updatePowerUI();
+  sendPreview();
 }
 ui.powerBar.addEventListener("pointerdown", (e) => {
   e.preventDefault(); ensureAudio();
@@ -3090,6 +3097,7 @@ function handleSpinInput(clientX, clientY) {
   if (dist > maxR) { const k = maxR / dist; nx = (dx * k) / maxR; ny = (dy * k) / maxR; }
   game.spinX = clamp(nx, -1, 1); game.spinY = clamp(ny, -1, 1);
   drawSpinCanvas(); updateSpinLabel();
+  sendPreview();
 }
 spinCanvas.addEventListener("click", (e) => handleSpinInput(e.clientX, e.clientY));
 spinCanvas.addEventListener("touchstart", (e) => {
@@ -3105,6 +3113,7 @@ spinCanvas.addEventListener("touchmove", (e) => {
 ui.btnSpinReset.addEventListener("click", () => {
   game.spinX = 0; game.spinY = 0;
   drawSpinCanvas(); updateSpinLabel();
+  sendPreview();
 });
 ui.btnShoot.addEventListener("click", () => {
   ensureAudio();
@@ -3614,6 +3623,17 @@ function handleRelayMessage(msg) {
       game.mode = "online"; // newGame() könnte game.mode überschreiben, Online-Mode sicherstellen
       applyOnlineSync(msg); // Aktuellen Mid-Game-State drüberlegen (Positionen, inPlay, Spieler …)
       break;
+    case "preview":
+      if (online.role === "spectator") {
+        game.aimAngle     = msg.aimAngle;
+        game.powerPercent = msg.power;
+        game.spinX        = msg.spinX;
+        game.spinY        = msg.spinY;
+        updatePowerUI();
+        drawSpinCanvas();
+        updateSpinLabel();
+      }
+      break;
     case "disconnect":
       online.connected = false;
       ui.endScreen.classList.remove("show");
@@ -3725,6 +3745,22 @@ function sendOnlineSync() {
     awaitingPushOutDecision: game.awaitingPushOutDecision,
     state: game.state,
     endMessage: game.endMessage || "",
+  }));
+}
+
+function sendPreview() {
+  if (game.mode !== "online") return;
+  if (game.currentPlayer !== online.myPlayer) return;
+  if (!online.ws || online.ws.readyState !== WebSocket.OPEN) return;
+  const now = Date.now();
+  if (now - _lastPreviewSent < 80) return;
+  _lastPreviewSent = now;
+  online.ws.send(JSON.stringify({
+    type: "preview",
+    aimAngle: game.aimAngle,
+    power: game.powerPercent,
+    spinX: game.spinX,
+    spinY: game.spinY,
   }));
 }
 
