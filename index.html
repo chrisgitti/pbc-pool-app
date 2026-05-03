@@ -3589,11 +3589,12 @@ function handleRelayMessage(msg) {
     case "snapshot":
       game.variant    = msg.variant;
       game.rack9      = msg.rack9;
-      game.miniCount8 = msg.miniCount8;
-      game.miniCount9 = msg.miniCount9;
+      game.miniCount8 = msg.miniCount8 ?? 0;
+      game.miniCount9 = msg.miniCount9 ?? 0;
       if (msg.p0name) game.players[0].name = msg.p0name;
       if (msg.p1name) game.players[1].name = msg.p1name;
-      applyOnlineSync(msg);
+      newGame(); // Kugeln für die richtige Variante initialisieren
+      applyOnlineSync(msg); // Aktuellen State (Positionen, Spieler, Foul …) drüberlegen
       break;
     case "disconnect":
       online.connected = false;
