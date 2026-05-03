@@ -2437,9 +2437,6 @@ function drawBall(b) {
     ctx.fillStyle = "#222"; ctx.font = "bold 10px sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(String(b.num), b.x, b.y + 0.5);
-  } else if ((Math.abs(game.spinX) > 0.05 || Math.abs(game.spinY) > 0.05) && !game.shotInProgress) {
-    ctx.fillStyle = "#ef476f";
-    ctx.beginPath(); ctx.arc(b.x + game.spinX * b.r * 0.6, b.y + game.spinY * b.r * 0.6, 2, 0, Math.PI * 2); ctx.fill();
   }
   ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 0.5;
   ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke();
