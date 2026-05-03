@@ -14,7 +14,7 @@ Komplett selbstständig in **einer einzigen HTML-Datei** – keine Build-Tools, 
 | **8-Ball Mini** | 8-Ball mit wählbarer Kugelanzahl: 3, 5, 7 oder 9 Kugeln |
 | **9-Ball Mini** | 9-Ball mit wählbarer Kugelanzahl: 3, 5, 7 oder 9 Kugeln |
 | **Basisübung** | Drill-Modus: einzelne Kugel versenken, mit WIEDERHOLEN-Toggle |
-| **15-Ball-Drill** | Alle 15 Kugeln im Dreieck; Ziel: so wenige Stöße wie möglich |
+| **15-Kugeln Drill** | 15 Kugeln nacheinander auf den Fußpunkt; Ball in Hand nur beim 1. Stoß und nach Weißer-Foul; je Kugel ein Versuch; Ziel: möglichst viele versenken |
 
 ### Spielmodi
 
@@ -90,11 +90,13 @@ Client (Host)          Relay-Server            Client (Gast)
 - **WIEDERHOLEN**: Toggle-Button stellt nach jedem Einlochen automatisch neu auf
 - Ohne WIEDERHOLEN: Spieler setzt selbst neu auf (Übungsmodus für gezielte Drills)
 
-### 15-Ball-Drill
+### 15-Kugeln Drill
 
-- Alle 15 Kugeln im Standard-Dreieck aufgestellt
-- Ziel: alle Kugeln mit möglichst wenigen Stößen einlochen
-- Stoßzähler wird angezeigt, kein Gegnerwechsel
+- 15 Kugeln werden nacheinander einzeln auf den Fußpunkt gesetzt
+- Ball in Hand nur beim ersten Stoß und nach einem Weißer-Foul
+- Je Kugel nur ein Versuch – trifft der Stoß nicht, kommt die nächste Kugel
+- Ziel: möglichst viele der 15 Kugeln einlochen
+- Trefferquote (z. B. „11/15") wird am Ende angezeigt
 
 ---
 
