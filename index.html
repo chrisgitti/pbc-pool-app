@@ -946,6 +946,10 @@
 
   <div id="playArea">
     <canvas id="gameCanvas" width="920" height="500"></canvas>
+    <div id="spectatorBadge" style="display:none; position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:50; flex-direction:row; gap:12px; align-items:center; background:rgba(10,10,11,0.85); border:1px solid rgba(212,160,67,0.4); border-radius:999px; padding:6px 16px; font-size:0.82rem; color:rgba(255,255,255,0.8);">
+      <span>👁 Zuschauer-Modus</span>
+      <button id="btnSpectatorLeave" style="font-size:0.78rem; padding:3px 10px;">← Verlassen</button>
+    </div>
 
     <div id="controlPanel">
       <div class="aim-section">
@@ -1033,6 +1037,7 @@
       <div class="lobby-buttons">
         <button id="btnCreateRoom" class="primary">Raum erstellen</button>
         <button id="btnJoinRoom">Beitreten</button>
+        <button id="btnSpectateRoom">👁 Zuschauen</button>
       </div>
       <div id="joinCodeRow" style="display:none;">
         <input type="text" id="joinCodeInput" placeholder="Code (z.B. A3KF2M)" maxlength="6" autocomplete="off" style="text-transform:uppercase;margin-top:8px;">
@@ -3305,6 +3310,12 @@ function updateUI() {
   setBadge(ui.p1Badge, game.players[0]);
   setBadge(ui.p2Badge, game.players[1]);
   ui.p2Box.style.visibility = (game.mode === "solo" || game.variant === "drill15" || game.variant === "basis") ? "hidden" : "visible";
+
+  if (online.role === "spectator") {
+    document.getElementById("bottomControls").style.visibility = "hidden";
+    document.getElementById("controlPanel").style.visibility   = "hidden";
+    document.getElementById("spectatorBadge").style.display    = "flex";
+  }
 }
 
 function setBadge(el, player) {
@@ -3411,6 +3422,7 @@ const uiOnline = {
   error:         document.getElementById("lobbyError"),
   btnCreate:     document.getElementById("btnCreateRoom"),
   btnJoin:       document.getElementById("btnJoinRoom"),
+  btnSpectate:   document.getElementById("btnSpectateRoom"),
   btnJoinOk:     document.getElementById("btnJoinConfirm"),
   btnBack:       document.getElementById("btnLobbyBack"),
   disconnect:    document.getElementById("onlineDisconnect"),
@@ -3429,6 +3441,7 @@ function openLobby() {
 function closeLobby() {
   uiOnline.lobby.style.display = "none";
   if (online.ws) { online.ws.close(); online.ws = null; }
+  canvas.style.pointerEvents = "";
   game.mode = "hotseat";
   document.querySelectorAll("#optMode .opt").forEach(o => {
     o.classList.toggle("selected", o.dataset.val === "hotseat");
@@ -3543,10 +3556,59 @@ function handleRelayMessage(msg) {
         // Gast startet das Spiel erst nach "settings"-Nachricht
       }
       break;
+    case "spectating":
+      online.role = "spectator";
+      online.myPlayer = -1;
+      game.mode = "online";
+      uiOnline.lobby.style.display = "none";
+      canvas.style.pointerEvents = "none";
+      hideMenu();
+      updateUI();
+      break;
+    case "spectator_joined":
+      if (online.role !== "host") break;
+      online.ws.send(JSON.stringify({
+        type: "snapshot",
+        variant:    game.variant,
+        rack9:      game.rack9,
+        miniCount8: game.miniCount8,
+        miniCount9: game.miniCount9,
+        balls:      game.balls.map(b => ({ num: b.num, inPlay: b.inPlay, x: b.x, y: b.y })),
+        currentPlayer: game.currentPlayer,
+        p0group: game.players[0].group,  p1group: game.players[1].group,
+        p0potted: [...game.players[0].potted],  p1potted: [...game.players[1].potted],
+        open8ball: game.open8ball,  ballInHand: game.ballInHand,
+        placingCue: false,  kitchenOnly: game.kitchenOnly,
+        isBreakShot: game.isBreakShot,  foulMessage: game.foulMessage || "",
+        called8Pocket: game.called8Pocket,  pushOutAvailable: game.pushOutAvailable,
+        inPushOut: game.inPushOut,  awaitingPushOutDecision: game.awaitingPushOutDecision,
+        state: game.state,  endMessage: game.endMessage || "",
+        p0name: game.players[0].name,  p1name: game.players[1].name,
+      }));
+      break;
+    case "snapshot":
+      game.variant    = msg.variant;
+      game.rack9      = msg.rack9;
+      game.miniCount8 = msg.miniCount8;
+      game.miniCount9 = msg.miniCount9;
+      if (msg.p0name) game.players[0].name = msg.p0name;
+      if (msg.p1name) game.players[1].name = msg.p1name;
+      applyOnlineSync(msg);
+      break;
     case "disconnect":
       online.connected = false;
       ui.endScreen.classList.remove("show");
-      uiOnline.disconnect.style.display = "flex";
+      if (online.role === "spectator") {
+        canvas.style.pointerEvents = "";
+        document.getElementById("spectatorBadge").style.display = "none";
+        document.getElementById("bottomControls").style.visibility = "";
+        document.getElementById("controlPanel").style.visibility = "";
+        online.role = null; online.myPlayer = 0; online.ws = null;
+        game.mode = "hotseat";
+        showMenu();
+      } else {
+        uiOnline.disconnect.style.display = "flex";
+      }
       break;
     case "error":
       showLobbyError(msg.msg);
@@ -3606,7 +3668,7 @@ function applyOnlineSync(msg) {
   game.players[1].potted = msg.p1potted ? [...msg.p1potted] : [];
   game.open8ball        = msg.open8ball;
   game.ballInHand       = msg.ballInHand;
-  game.placingCue       = msg.placingCue;
+  game.placingCue       = online.role === "spectator" ? false : msg.placingCue;
   game.kitchenOnly      = msg.kitchenOnly;
   game.isBreakShot      = msg.isBreakShot;
   game.foulMessage      = msg.foulMessage;
@@ -3672,7 +3734,16 @@ uiOnline.btnCreate.addEventListener("click", () => {
   connectRelay(() => online.ws.send(JSON.stringify({ type: "create", name })));
 });
 
+let _joinIntent = "join"; // "join" | "spectate"
+
 uiOnline.btnJoin.addEventListener("click", () => {
+  _joinIntent = "join";
+  uiOnline.joinCodeRow.style.display = "";
+  uiOnline.joinCodeInput.focus();
+});
+
+uiOnline.btnSpectate.addEventListener("click", () => {
+  _joinIntent = "spectate";
   uiOnline.joinCodeRow.style.display = "";
   uiOnline.joinCodeInput.focus();
 });
@@ -3680,12 +3751,23 @@ uiOnline.btnJoin.addEventListener("click", () => {
 uiOnline.btnJoinOk.addEventListener("click", () => {
   const code = uiOnline.joinCodeInput.value.trim().toUpperCase();
   if (code.length < 4) { showLobbyError("Bitte gültigen Code eingeben."); return; }
-  const name = uiOnline.name.value.trim() || "Spieler 2";
+  const name = uiOnline.name.value.trim() || (_joinIntent === "spectate" ? "Zuschauer" : "Spieler 2");
   uiOnline.joinCodeRow.style.display = "none";
   uiOnline.setup.style.display = "none";
   uiOnline.waiting.style.display = "";
   uiOnline.codeDisplay.textContent = code;
-  connectRelay(() => online.ws.send(JSON.stringify({ type: "join", code, name })));
+  connectRelay(() => online.ws.send(JSON.stringify({ type: _joinIntent, code, name })));
+});
+
+document.getElementById("btnSpectatorLeave").addEventListener("click", () => {
+  if (online.ws) { online.ws.close(); online.ws = null; }
+  canvas.style.pointerEvents = "";
+  document.getElementById("spectatorBadge").style.display = "none";
+  document.getElementById("bottomControls").style.visibility = "";
+  document.getElementById("controlPanel").style.visibility  = "";
+  online.role = null; online.myPlayer = 0; online.ws = null;
+  game.mode = "hotseat";
+  showMenu();
 });
 
 uiOnline.btnBack.addEventListener("click", closeLobby);
