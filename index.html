@@ -3593,8 +3593,9 @@ function handleRelayMessage(msg) {
       game.miniCount9 = msg.miniCount9 ?? 0;
       if (msg.p0name) game.players[0].name = msg.p0name;
       if (msg.p1name) game.players[1].name = msg.p1name;
-      newGame(); // Kugeln für die richtige Variante initialisieren
-      applyOnlineSync(msg); // Aktuellen State (Positionen, Spieler, Foul …) drüberlegen
+      newGame(); // Kugeln für die richtige Variante initialisieren (Positionen egal, werden gleich überschrieben)
+      game.mode = "online"; // newGame() könnte game.mode überschreiben, Online-Mode sicherstellen
+      applyOnlineSync(msg); // Aktuellen Mid-Game-State drüberlegen (Positionen, inPlay, Spieler …)
       break;
     case "disconnect":
       online.connected = false;
