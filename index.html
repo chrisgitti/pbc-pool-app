@@ -726,6 +726,7 @@
   body.fullscreen-mode #bottomControls > *:not(#btnFullscreen) { display: none; }
   body.fullscreen-mode #bottomControls { justify-content: center; padding: 2px 0; }
   body.portrait-mode.fullscreen-mode #playArea { flex: 1; }
+  body.fullscreen-mode #spectatorBadge { display: none !important; }
 
   /* ── Portrait-Modus (Phone hochkant, JS setzt body.portrait-mode) ── */
   body.portrait-mode #app {
@@ -3403,8 +3404,13 @@ function updateUI() {
   ui.p2Box.style.visibility = (game.mode === "solo" || game.variant === "drill15" || game.variant === "basis") ? "hidden" : "visible";
 
   if (online.role === "spectator") {
-    document.getElementById("bottomControls").style.visibility = "hidden";
-    document.getElementById("btnFullscreen").style.visibility = "visible";
+    if (_fullscreen) {
+      document.getElementById("bottomControls").style.visibility = "";
+      document.getElementById("btnFullscreen").style.visibility = "";
+    } else {
+      document.getElementById("bottomControls").style.visibility = "hidden";
+      document.getElementById("btnFullscreen").style.visibility = "visible";
+    }
     const cp = document.getElementById("controlPanel");
     cp.style.visibility    = "visible";
     cp.style.pointerEvents = "none";
