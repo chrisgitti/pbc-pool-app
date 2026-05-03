@@ -727,6 +727,14 @@
   body.fullscreen-mode #bottomControls { justify-content: center; padding: 2px 0; }
   body.portrait-mode.fullscreen-mode #playArea { flex: 1; }
   body.fullscreen-mode #spectatorBadge { display: none !important; }
+  /* ✕-Button als fixed overlay: bleibt immer sichtbar, auch wenn #bottomControls
+     durch overflow:hidden des 100vh-Containers abgeschnitten wird */
+  body.fullscreen-mode #btnFullscreen {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 9999;
+  }
 
   /* ── Portrait-Modus (Phone hochkant, JS setzt body.portrait-mode) ── */
   body.portrait-mode #app {
