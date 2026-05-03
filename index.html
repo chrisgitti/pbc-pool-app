@@ -3894,11 +3894,14 @@ function handleRelayMessage(msg) {
         game.powerPercent = msg.power;
         game.spinX        = msg.spinX;
         game.spinY        = msg.spinY;
+        if (msg.cueElevation !== undefined) game.cueElevation = msg.cueElevation;
         if (msg.cbX !== undefined) game.cueBall.x = msg.cbX;
         if (msg.cbY !== undefined) game.cueBall.y = msg.cbY;
         updatePowerUI();
         drawSpinCanvas();
         updateSpinLabel();
+        drawElevCanvas();
+        updateElevLabel();
       }
       break;
     case "disconnect":
@@ -4035,6 +4038,7 @@ function sendPreview() {
     power: game.powerPercent,
     spinX: game.spinX,
     spinY: game.spinY,
+    cueElevation: game.cueElevation,
     cbX: game.cueBall.x,
     cbY: game.cueBall.y,
   }));
