@@ -1,39 +1,102 @@
 # PBC Erding – Pool Billard Web-App
 
-Eine browserbasierte 8-Ball- und 9-Ball-Simulation im Branding des Pool Billard Club Erding e.V.
+Eine browserbasierte Pool-Billard-Simulation im Branding des Pool Billard Club Erding e.V.
 Komplett selbstständig in **einer einzigen HTML-Datei** – keine Build-Tools, kein Server, keine Abhängigkeiten außer Google Fonts.
 
 ## Features
 
-- **Spielvarianten**: 8-Ball (mit Call-Shot nach modernen WPA/BCA-Regeln) und 9-Ball
-- **Spielmodi**:
-  - Hot-Seat (zwei Spieler an einem Gerät)
-  - Gegen KI (drei Schwierigkeitsstufen)
-  - Solo / Übung
-- **Physik**:
-  - Elastische Kugel-Kugel-Kollisionen
-  - Banden-Reflexion mit realistischer Energieabgabe
-  - Achteckiger Tisch mit verkürzten Eck-Banden (~2 Kugeln breite Lücke)
-  - 45°-Schräg-Banden in den Eck-Cuts
-  - Multiplikative + lineare Roll-Reibung (kein endloses Auslaufen)
-  - Adaptive Substepping zur Tunneling-Vermeidung bei hohen Geschwindigkeiten
-- **Effet (Spin)**: Top-Spin, Back-Spin, links/rechts-Drall – beeinflusst Cue-Ball-Verhalten nach Kontakt + Banden
-- **Steuerung**:
-  - LMB ziehen → Queue/Zielwinkel
-  - RMB ziehen → Stoßstärke + Stoß auslösen
-  - Power-Bar klick- und tappbar (Touch-Support)
-  - Pfeiltasten für Feinjustierung (mit Shift = sehr fein, Strg = grob)
-  - Leertaste oder STOSS-Button als Backup
-- **Ansage-Logik (8-Ball)**:
-  - Vor jedem Stoß bei offenem Tisch Voll/Halb-Ansage (Inline-Banner, Tisch bleibt sichtbar)
-  - Bei Verfehlen der angesagten Gruppe → Tisch bleibt offen, Spielerwechsel
-- **Schwarze 8 (8-Ball)**:
-  - Vorzeitig versenkt → automatisches Re-Spotting auf Fußpunkt, Foul mit Ball-in-Hand
-  - Gewinn nur nach komplett geräumter eigener Gruppe + sauberem Stoß
-- **Anstoß**:
-  - Weiße per Maus im Kopffeld platzierbar (gold hervorgehoben)
-- **Sound**: synthetisch über Web Audio API (kein Asset-Download)
-- **Design**: PBC-Erding-Branding (Schwarz/Gold/Anthrazit, Bebas Neue + Inter)
+### Spielvarianten
+
+| Variante | Beschreibung |
+|---|---|
+| **8-Ball** | Volle WPA/BCA-Regelwertung inkl. Call-Shot, Schwarze-8-Logik, Push-Out |
+| **9-Ball** | Standard 9-Ball mit Break-Foul, korrekter Reihenfolge und Gewinn-9 |
+| **8-Ball Mini** | 8-Ball mit wählbarer Kugelanzahl: 3, 5, 7 oder 9 Kugeln |
+| **9-Ball Mini** | 9-Ball mit wählbarer Kugelanzahl: 3, 5, 7 oder 9 Kugeln |
+| **Basisübung** | Drill-Modus: einzelne Kugel versenken, mit WIEDERHOLEN-Toggle |
+| **15-Ball-Drill** | Alle 15 Kugeln im Dreieck; Ziel: so wenige Stöße wie möglich |
+
+### Spielmodi
+
+| Modus | Beschreibung |
+|---|---|
+| **Hot-Seat** | Zwei Spieler an einem Gerät |
+| **Gegen KI** | Drei Schwierigkeitsstufen (Einfach / Mittel / Schwer) |
+| **Solo / Übung** | Freies Spiel ohne Gegner |
+| **Online-Spiel** | Echtzeit-Mehrspielermodus via WebSocket (Raum erstellen / beitreten) |
+
+### Physik
+
+- Elastische Kugel-Kugel-Kollisionen
+- Banden-Reflexion mit realistischer Energieabgabe
+- Achteckiger Tisch mit verkürzten Eck-Banden (~2 Kugeln breite Lücke)
+- 45°-Schräg-Banden in den Eck-Cuts
+- Multiplikative + lineare Roll-Reibung (kein endloses Auslaufen)
+- Adaptive Substepping zur Tunneling-Vermeidung bei hohen Geschwindigkeiten
+
+### Steuerung
+
+- **Zielwinkel**: Linke Maustaste (LMT) ziehen oder Hover über Tisch
+- **Stoßstärke + Auslösen**: Rechte Maustaste (RMT) ziehen und loslassen
+- **Power-Bar**: klick- und tappbar (Touch-Support für mobile Geräte)
+- **Pfeiltasten**: Feinjustierung des Winkels (Shift = sehr fein, Strg = grob)
+- **Leertaste** oder STOSS-Button als Backup-Auslöser
+- **Effet (Spin)**: Klick auf Mini-Cueball – Top-Spin, Back-Spin, links/rechts-Drall
+
+### Spielregeln (8-Ball)
+
+- Vor jedem Stoß bei offenem Tisch Voll/Halb-Ansage (Inline-Banner, Tisch bleibt sichtbar)
+- Bei Verfehlen der angesagten Gruppe → Tisch bleibt offen, Spielerwechsel
+- Schwarze 8 vorzeitig versenkt → Re-Spotting auf Fußpunkt, Foul mit Ball-in-Hand
+- Gewinn nur nach komplett geräumter eigener Gruppe + sauberem Stoß auf die 8
+- Push-Out-Regel nach dem Eröffnungsstoß
+
+### Online-Spiel (Multiplayer)
+
+- WebSocket-Verbindung via Relay-Server (`wss://pbc-relay.onrender.com`)
+- Raum erstellen → 4-stelligen Code teilen → Gast tritt bei
+- Synchronisation: Schuss-Vektoren + Spielstand nach jedem Stoß
+- Spielvariante und Einstellungen werden vom Host beim Start übertragen
+- Rematch-Funktion nach Spielende
+
+**Relay-Server (Middleware)**
+
+Der Online-Modus erfordert einen eigenständigen WebSocket-Relay-Server.
+Quellcode: [`pbc-relay`](https://github.com/chrisgitti/pbc-relay) · Betrieb: [Render.com](https://render.com) (Free Tier)
+
+| Eigenschaft | Wert |
+|---|---|
+| Protokoll | WebSocket (`ws` / Node.js) |
+| Deployment | Render.com Free Tier (auto-deploy bei `git push`) |
+| URL | `wss://pbc-relay.onrender.com` |
+| Raumstruktur | `{ host, guest, hostName }` – max. 2 aktive Spieler pro Raum |
+| Nachrichtentypen | `create`, `created`, `join`, `start`, `shot`, `sync`, `settings`, `rematch`, `disconnect`, `ping` |
+| Weiterleitung | Blind-Relay: alle nicht behandelten Nachrichten werden an den Gegenspieler weitergeleitet |
+| RAM-Bedarf | ~40–80 KB pro Verbindung; Free-Tier-Limit (512 MB) nicht erreichbar |
+
+```
+Client (Host)          Relay-Server            Client (Gast)
+     │── create ──────────▶│                        │
+     │◀─ created (Code) ───│                        │
+     │                     │◀──── join (Code) ──────│
+     │◀─ start ────────────│──── start ────────────▶│
+     │── shot/sync ────────▶│──── shot/sync ────────▶│
+     │◀─ shot/sync ────────│◀─── shot/sync ──────────│
+```
+
+### Basisübung (Drill)
+
+- Eine Kugel wird aufgestellt, Cue Ball frei platzierbar
+- **WIEDERHOLEN**: Toggle-Button stellt nach jedem Einlochen automatisch neu auf
+- Ohne WIEDERHOLEN: Spieler setzt selbst neu auf (Übungsmodus für gezielte Drills)
+
+### 15-Ball-Drill
+
+- Alle 15 Kugeln im Standard-Dreieck aufgestellt
+- Ziel: alle Kugeln mit möglichst wenigen Stößen einlochen
+- Stoßzähler wird angezeigt, kein Gegnerwechsel
+
+---
 
 ## Tisch-Geometrie
 
@@ -47,26 +110,37 @@ Komplett selbstständig in **einer einzigen HTML-Datei** – keine Build-Tools, 
 | Pocket-Detection | 22 px (= 1 Kugeldurchmesser) |
 | Diamonds | 6 pro Längsseite, 3 pro Breitseite |
 
-## Steuerung im Detail
+---
 
-| Aktion | Eingabe |
+## Mini-Modus Aufstellungen
+
+### 9-Ball Mini
+
+| Kugelanzahl | Aufstellung |
 |---|---|
-| Zielwinkel | LMB ziehen / Hover über Tisch |
-| Stoßstärke | RMB ziehen / Power-Bar klicken |
-| Stoß auslösen | RMB loslassen / Leertaste / STOSS-Button |
-| Feinjustierung | ←/→ Pfeiltasten |
-| Sehr fein | Shift + ←/→ (oder eigene Buttons) |
-| Grob | Strg + ←/→ |
-| Power +/− | ↑/↓ Pfeiltasten |
-| Effet | Klick auf Mini-Cueball |
-| Menü öffnen | M |
-| Stoßstärke wachsen | Power-Bar entlangziehen |
+| 3 Kugeln | Reihe: 1 – 9 – 2 |
+| 5 Kugeln | 1 vorne; 2+3 zweite Reihe; 9 mittig dritte Reihe; 4 hinten |
+| 7 Kugeln | Standard 9-Ball-Raute ohne 8 und 9; 9 in der Mitte |
+| 9 Kugeln | Standard 9-Ball-Raute |
+
+### 8-Ball Mini
+
+| Kugelanzahl | Aufstellung |
+|---|---|
+| 3 Kugeln | Reihe: 1 – 8 – 9 |
+| 5 Kugeln | 1 vorne; 2+9 zweite Reihe; 8 mittig dritte Reihe; 10 hinten |
+| 7 Kugeln | 7 Kugeln im Dreieck mit 8 mittig |
+| 9 Kugeln | 9 Kugeln im Dreieck mit 8 mittig |
+
+---
 
 ## Aufbau
 
 ```
 pbc-pool-app/
 ├── index.html      # Komplette App – HTML + CSS + JS in einer Datei
+├── server.js       # Optionaler lokaler Dev-Server (Port 3004, Cache-Control: no-store)
+├── package.json    # npm start → node server.js
 ├── README.md       # Diese Datei
 └── .gitignore
 ```
@@ -76,19 +150,22 @@ pbc-pool-app/
 Einfach `index.html` im Browser öffnen – fertig. Keine Installation, kein Server.
 
 ```bash
-# Per Doppelklick
-explorer index.html
+# Direkt im Browser
+start index.html
 
-# Oder mit lokalem Webserver (optional, z. B. für Sound auf einigen Browsern)
-python -m http.server 8080
-# dann http://localhost:8080/ aufrufen
+# Mit lokalem Dev-Server (empfohlen, verhindert Browser-Cache-Probleme)
+npm start
+# → http://localhost:3004/
 ```
+
+---
 
 ## Tech-Stack
 
 - **HTML5 Canvas** für 2D-Tisch-Rendering
 - **Web Audio API** für synthetische Soundeffekte
-- **Vanilla JS / ES2022** – keine Frameworks
+- **WebSocket API** für den Online-Mehrspielermodus
+- **Vanilla JS / ES2022** – keine Frameworks, keine Abhängigkeiten
 - **Google Fonts**: Bebas Neue (Display), Inter (Body)
 - **CSS Custom Properties** mit den PBC-Erding-Designtokens
 
@@ -106,6 +183,8 @@ python -m http.server 8080
 --gold-500:     #d4a043  /* Akzent */
 --gold-600:     #b8852e
 ```
+
+---
 
 ## Lizenz
 
