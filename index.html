@@ -647,8 +647,10 @@
   #onlineLobby button:hover { border-color: var(--gold-500); color: var(--gold-500); }
   #onlineLobby button.primary { background: var(--gold-500); color: var(--charcoal-950); border-color: var(--gold-500); }
   #onlineLobby button.primary:hover { background: var(--gold-400); color: var(--charcoal-950); }
-  .lobby-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  #btnCreateRoom { grid-column: 1 / -1; }
+  .lobby-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  .lobby-buttons #btnCreateRoom { flex: 1 1 100%; }
+  .lobby-buttons #btnJoinRoom,
+  .lobby-buttons #btnSpectateRoom { flex: 1; min-width: 0; }
   #roomCodeDisplay {
     font-family: "Bebas Neue", monospace; font-size: 52px;
     color: var(--gold-500); text-align: center; letter-spacing: 0.2em;
