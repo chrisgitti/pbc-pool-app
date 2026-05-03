@@ -3171,7 +3171,7 @@ function showEndScreen() {
     _score[game.winner]++;
     _scoreUpdated = true;
     const sd = document.getElementById("scoreDisplay");
-    if (sd) sd.textContent = `${_score[0]} : ${_score[1]}`;
+    if (sd) { sd.textContent = `${_score[0]} : ${_score[1]}`; sd.style.display = "block"; }
   }
   const scoreEl = document.getElementById("endScore");
   if (_score[0] > 0 || _score[1] > 0) {
@@ -3295,7 +3295,7 @@ function updateUI() {
   const scoreEl = document.getElementById("scoreDisplay");
   if (game.mode === "hotseat" || game.mode === "ai" || game.mode === "online") {
     scoreEl.textContent = `${_score[0]} : ${_score[1]}`;
-    scoreEl.style.display = "";
+    scoreEl.style.display = "block";
   } else {
     scoreEl.style.display = "none";
   }
