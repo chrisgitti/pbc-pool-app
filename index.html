@@ -647,8 +647,8 @@
   #onlineLobby button:hover { border-color: var(--gold-500); color: var(--gold-500); }
   #onlineLobby button.primary { background: var(--gold-500); color: var(--charcoal-950); border-color: var(--gold-500); }
   #onlineLobby button.primary:hover { background: var(--gold-400); color: var(--charcoal-950); }
-  .lobby-buttons { display: flex; gap: 8px; }
-  .lobby-buttons button { flex: 1; }
+  .lobby-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #btnCreateRoom { grid-column: 1 / -1; }
   #roomCodeDisplay {
     font-family: "Bebas Neue", monospace; font-size: 52px;
     color: var(--gold-500); text-align: center; letter-spacing: 0.2em;
@@ -2762,6 +2762,18 @@ function handleCanvasUp(e) {
 }
 
 canvas.addEventListener("mousedown", (e) => { if (Date.now() - _lastTouchTimestamp < 500) return; handleCanvasDown(e); });
+canvas.addEventListener("dblclick", (e) => {
+  if (Date.now() - _lastTouchTimestamp < 500) return;
+  if (!game.ballInHand) return;
+  if (game.mode === "online" && game.currentPlayer !== online.myPlayer) return;
+  const p = mousePos(e);
+  const cue = game.cueBall;
+  if (Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 5) {
+    game.placingCue = !game.placingCue;
+    if (game.placingCue) { cueDragging = false; lmbDragging = false; }
+    updateUI();
+  }
+});
 canvas.addEventListener("mousemove", handleCanvasMove);
 canvas.addEventListener("mouseup", (e) => { if (Date.now() - _lastTouchTimestamp < 500) return; handleCanvasUp(e); });
 canvas.addEventListener("mouseleave", () => {
@@ -2787,11 +2799,22 @@ canvas.addEventListener("touchstart", (e) => {
     lmbDragging = false;
     return;
   }
-  // Double-Tap setzt Zoom zurück
+  // Double-Tap: Ball-in-Hand umschalten oder Zoom zurücksetzen
   const _now = Date.now();
+  const t = e.touches[0];
+  if (_now - _lastTapTime < 300 && game.ballInHand && !(game.mode === "online" && game.currentPlayer !== online.myPlayer)) {
+    const p = mousePos({ clientX: t.clientX, clientY: t.clientY });
+    const cue = game.cueBall;
+    if (Math.hypot(p.x - cue.x, p.y - cue.y) < cue.r * 5) {
+      game.placingCue = !game.placingCue;
+      if (game.placingCue) { cueDragging = false; lmbDragging = false; }
+      _lastTapTime = 0;
+      updateUI();
+      return;
+    }
+  }
   if (_now - _lastTapTime < 300) resetCanvasZoom();
   _lastTapTime = _now;
-  const t = e.touches[0];
   _lastTouchTimestamp = Date.now();
   game.aimLocked = false;
   handleCanvasDown({ clientX: t.clientX, clientY: t.clientY, button: 0, preventDefault: ()=>{} });
