@@ -3177,7 +3177,7 @@ function showEndScreen() {
   if (_score[0] > 0 || _score[1] > 0) {
     const n0 = game.players[0].name || "Spieler 1";
     const n1 = game.players[1].name || "Spieler 2";
-    scoreEl.textContent = `${n0}  –  ${_score[0]} : ${_score[1]}  –  ${n1}`;
+    scoreEl.textContent = `< ${_score[0]} : ${_score[1]} >`;
     scoreEl.style.display = "";
   } else {
     scoreEl.style.display = "none";
