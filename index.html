@@ -1575,16 +1575,19 @@ function step() {
     }
     if (Math.hypot(b.vx, b.vy) < MIN_VEL) { b.vx = 0; b.vy = 0; }
   }
-  // Swerve-Kraft auf Weißkugel (nur wenn Élévation > 0 und Seitenschnitt vorhanden)
+  // Swerve-Kraft auf Weißkugel (Elevation aus spinPending – nicht aus game.cueElevation,
+  // da game.cueElevation nach startShot() bereits zurückgesetzt ist)
   {
     const sp = game.spinPending;
     const cue = game.cueBall;
-    if (cue.inPlay && !sp.used && Math.abs(sp.x) > 0.02 && game.cueElevation > 0.05) {
+    if (cue.inPlay && !sp.used && Math.abs(sp.x) > 0.02 && sp.elevation > 0.05) {
       const speed = Math.hypot(cue.vx, cue.vy);
       if (speed > MIN_VEL) {
         const nx = cue.vx / speed, ny = cue.vy / speed;
-        const elevFactor = Math.sin(game.cueElevation * Math.PI / 4); // 0°→0, 45°→0.707
-        const swerveAcc  = Math.abs(sp.x) * elevFactor * 0.004;
+        const elevFactor = Math.sin(sp.elevation * Math.PI / 4); // 0°→0, 45°→0.707
+        // Geschwindigkeitsabhängigkeit: Swerve wirkt stärker bei langsamem Ball
+        const speedRatio = Math.min(sp.power / Math.max(speed, 0.1), 6);
+        const swerveAcc  = Math.abs(sp.x) * elevFactor * 0.012 * speedRatio;
         cue.vx += -ny * Math.sign(sp.x) * swerveAcc;
         cue.vy +=  nx * Math.sign(sp.x) * swerveAcc;
       }
@@ -1689,7 +1692,7 @@ function startShot() {
   game.anyCushionAfterFirstHit = false;
   game.lowestAtShotStart = (game.variant === "9ball") ? lowestBallOnTable() : null;
   game.foulMessage = ""; game.foulTimer = 0;
-  game.spinPending = { x: game.spinX, y: game.spinY, dirX, dirY, power, used: false };
+  game.spinPending = { x: game.spinX, y: game.spinY, dirX, dirY, power, elevation: game.cueElevation, used: false };
   const cue = game.cueBall;
   cue.vx = dirX * power; cue.vy = dirY * power;
   game.shotInProgress = true; game.state = "moving";
@@ -2532,15 +2535,17 @@ function predictSwervePath(cx, cy, angle, spinX, power, elev) {
   let vx = Math.cos(angle) * power, vy = Math.sin(angle) * power;
   let x = cx, y = cy;
   const ef = Math.sin(elev * Math.PI / 4);
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < 300; i++) {
     vx *= FRICTION; vy *= FRICTION;
     const sp = Math.hypot(vx, vy);
     if (sp < MIN_VEL) break;
     const ns = Math.max(0, sp - ROLLING_DRAG) / sp;
     vx *= ns; vy *= ns;
     const nx = vx / sp, ny = vy / sp;
-    vx += -ny * Math.sign(spinX) * Math.abs(spinX) * ef * 0.004;
-    vy +=  nx * Math.sign(spinX) * Math.abs(spinX) * ef * 0.004;
+    const speedRatio = Math.min(power / Math.max(sp, 0.1), 6);
+    const swerveAcc = Math.abs(spinX) * ef * 0.012 * speedRatio;
+    vx += -ny * Math.sign(spinX) * swerveAcc;
+    vy +=  nx * Math.sign(spinX) * swerveAcc;
     x += vx; y += vy;
     path.push({x, y});
     if (x < PLAY_X1 || x > PLAY_X2 || y < PLAY_Y1 || y > PLAY_Y2) break;
@@ -2662,12 +2667,19 @@ function updateElevLabel() {
     deg === 0 ? "0° (flach)" : `${deg}° Queue-Winkel`;
 }
 
-function handleElevInput(clientY) {
-  const r = elevCanvas.getBoundingClientRect();
-  const relY = (clientY - r.top) / r.height;
-  game.cueElevation = clamp(1 - relY, 0, 1);
+let _elevDragStartY = null, _elevDragStartVal = 0;
+function handleElevDragStart(clientY) {
+  _elevDragStartY = clientY;
+  _elevDragStartVal = game.cueElevation;
+}
+function handleElevDragMove(clientY) {
+  if (_elevDragStartY === null) return;
+  // Drag nach oben (+) = mehr Winkel, nach unten (−) = weniger Winkel
+  const dy = _elevDragStartY - clientY;
+  game.cueElevation = clamp(_elevDragStartVal + dy / 80, 0, 1);
   drawElevCanvas(); updateElevLabel();
 }
+function handleElevDragEnd() { _elevDragStartY = null; }
 
 function drawSpinCanvas() {
   const cw = spinCanvas.width, ch = spinCanvas.height;
@@ -3284,10 +3296,15 @@ ui.btnSpinReset.addEventListener("click", () => {
   sendPreview();
 });
 
-// Élévation-Canvas – Interaktion (Klick/Touch auf Y-Position)
-elevCanvas.addEventListener("click", (e) => handleElevInput(e.clientY));
-elevCanvas.addEventListener("touchstart", (e) => { e.preventDefault(); handleElevInput(e.touches[0].clientY); }, { passive: false });
-elevCanvas.addEventListener("touchmove",  (e) => { e.preventDefault(); if (e.touches[0]) handleElevInput(e.touches[0].clientY); }, { passive: false });
+// Élévation-Canvas – Drag-Steuerung (hoch = mehr Winkel, runter = weniger)
+elevCanvas.addEventListener("pointerdown", (e) => { handleElevDragStart(e.clientY); elevCanvas.setPointerCapture(e.pointerId); });
+elevCanvas.addEventListener("pointermove", (e) => handleElevDragMove(e.clientY));
+elevCanvas.addEventListener("pointerup",   () => handleElevDragEnd());
+elevCanvas.addEventListener("pointercancel", () => handleElevDragEnd());
+// Touch-Fallback
+elevCanvas.addEventListener("touchstart", (e) => { e.preventDefault(); handleElevDragStart(e.touches[0].clientY); }, { passive: false });
+elevCanvas.addEventListener("touchmove",  (e) => { e.preventDefault(); if (e.touches[0]) handleElevDragMove(e.touches[0].clientY); }, { passive: false });
+elevCanvas.addEventListener("touchend",   () => handleElevDragEnd());
 document.getElementById("btnElevReset").addEventListener("click", () => {
   game.cueElevation = 0; drawElevCanvas(); updateElevLabel();
 });
